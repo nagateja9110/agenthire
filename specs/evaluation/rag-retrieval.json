@@ -1,0 +1,13 @@
+{
+  "resume_chunk_chars": 500,
+  "policy_chunk_chars": 1000,
+  "chunk_overlap_chars": 50,
+  "top_k": 5,
+  "minimum_similarity": 0.75,
+  "collections": {
+    "resumes": "agenthire_resumes",
+    "policies": "agenthire_policies"
+  },
+  "embedding_model": "Xenova/bge-small-en-v1.5",
+  "embedding_dimensions": 384
+}

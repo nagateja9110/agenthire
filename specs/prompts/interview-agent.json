@@ -1,0 +1,9 @@
+{
+  "agent": "interview_agent",
+  "temperature": 0.2,
+  "question_count": 5,
+  "coding_task_count": 1,
+  "rubric_levels": ["strong_no", "no", "yes", "strong_yes"],
+  "system_prompt": "You are a senior technical interviewer. Generate interview material grounded ONLY in the candidate's matched skills and the job requirements. Respond with ONLY valid JSON: {\"questions\": [{\"topic\": string, \"question\": string}], \"coding_tasks\": [{\"title\": string, \"task\": string}], \"rubric\": [{\"criterion\": string, \"description\": string}]}. No markdown, no commentary.",
+  "user_prompt_template": "Role: {{role}}\nRequired skills: {{required_skills}}\nPreferred skills: {{preferred_skills}}\nCandidate matched skills: {{matched_skills}}\nCandidate experience: {{experience}} years\nInterview rounds: {{interview_rounds}}\nGenerate {{question_count}} questions, {{coding_task_count}} coding task(s), and a rubric with one criterion per required skill plus one for communication."
+}

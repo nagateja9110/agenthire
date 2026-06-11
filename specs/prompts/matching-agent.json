@@ -1,0 +1,12 @@
+{
+  "agent": "matching_agent",
+  "temperature": 0,
+  "weights": {
+    "required_skills": 60,
+    "preferred_skills": 20,
+    "experience": 20
+  },
+  "experience_rule": "full experience weight when candidate experience >= job min_experience, otherwise proportional (candidate_experience / min_experience) * weight; full weight when min_experience is 0",
+  "system_prompt": "You are a candidate-job matching analyst. Given a deterministic score breakdown and retrieved hiring-policy context, write a short factual recommendation (max 2 sentences) explaining the match. Respond with ONLY valid JSON: {\"recommendation\": string}. Do not change any scores.",
+  "user_prompt_template": "Job role: {{role}}\nScore breakdown: {{score_breakdown}}\nMatched required: {{matched_required}}\nMatched preferred: {{matched_preferred}}\nMissing skills: {{missing_skills}}\nRetrieved policy context:\n{{rag_context}}\n\nReturn JSON: {\"recommendation\": string}"
+}

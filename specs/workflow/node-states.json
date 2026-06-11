@@ -1,0 +1,7 @@
+{
+  "pending": { "color": "#a1a1aa", "background": "#f4f4f5", "border": "#d4d4d8", "label": "Pending" },
+  "running": { "color": "#1d4ed8", "background": "#dbeafe", "border": "#3b82f6", "label": "Running" },
+  "success": { "color": "#15803d", "background": "#dcfce7", "border": "#22c55e", "label": "Success" },
+  "failed": { "color": "#b91c1c", "background": "#fee2e2", "border": "#ef4444", "label": "Failed" },
+  "waiting_approval": { "color": "#a16207", "background": "#fef9c3", "border": "#eab308", "label": "Waiting Approval" }
+}

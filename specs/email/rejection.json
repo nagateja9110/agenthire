@@ -1,0 +1,6 @@
+{
+  "id": "rejection",
+  "subject_template": "Update on your application - {{role}} at AgentHire",
+  "from": "AgentHire <onboarding@resend.dev>",
+  "body_template": "Hi {{candidate_name}},\n\nThank you for taking the time to apply for the {{role}} position.\n\nAfter careful review, we've decided not to move forward with your application at this time. This decision reflects the specific requirements of this role and not your overall abilities.\n\nWe encourage you to apply for future openings that match your skills.\n\nBest regards,\nThe AgentHire Recruiting Team"
+}

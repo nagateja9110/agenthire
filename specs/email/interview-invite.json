@@ -1,0 +1,6 @@
+{
+  "id": "interview-invite",
+  "subject_template": "Interview Invitation - {{role}} at AgentHire",
+  "from": "AgentHire <onboarding@resend.dev>",
+  "body_template": "Hi {{candidate_name}},\n\nGreat news! After reviewing your application for the {{role}} position, we'd like to invite you to the interview stage.\n\nYour profile matched {{match_score}}/100 against our requirements, and our team has approved moving forward.\n\nThe process has {{interview_rounds}} round(s). We'll follow up shortly with scheduling options.\n\nBest regards,\nThe AgentHire Recruiting Team"
+}

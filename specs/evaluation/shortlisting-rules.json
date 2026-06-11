@@ -1,0 +1,10 @@
+{
+  "shortlist_min": 80,
+  "hold_min": 60,
+  "decisions": {
+    "shortlisted": "score >= shortlist_min",
+    "hold": "hold_min <= score < shortlist_min",
+    "rejected": "score < hold_min"
+  },
+  "precedence_note": "A job hiring spec's minimum_score, when present, overrides shortlist_min for that job. Hold and reject bands always come from this file."
+}

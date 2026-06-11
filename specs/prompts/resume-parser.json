@@ -1,0 +1,24 @@
+{
+  "agent": "resume_parser",
+  "temperature": 0,
+  "known_skills": [
+    "React", "JavaScript", "TypeScript", "CSS", "HTML", "Next.js", "Tailwind CSS",
+    "Node.js", "Express", "MongoDB", "PostgreSQL", "MySQL", "Redis", "GraphQL",
+    "Python", "Django", "Flask", "FastAPI", "Java", "Spring Boot", "Go", "Rust",
+    "Docker", "Kubernetes", "AWS", "GCP", "Azure", "Git", "CI/CD", "Linux",
+    "Vue.js", "Angular", "Svelte", "Redux", "Zustand", "Jest", "Playwright",
+    "Cypress", "REST API", "Microservices", "LangChain", "LangGraph", "RAG",
+    "Machine Learning", "TensorFlow", "PyTorch", "SQL", "Sass", "Webpack", "Vite"
+  ],
+  "system_prompt": "You are a precise resume parsing engine. Extract structured facts from raw resume text. Respond with ONLY valid JSON matching the output schema - no markdown, no commentary. Skills must be canonicalized against the provided known skills and job skills lists when a match is obvious (e.g. 'ReactJS' -> 'React'). Experience is total professional experience in years as a number. If a field cannot be determined, use null for scalars and [] for arrays. Never invent facts that are not in the resume.",
+  "user_prompt_template": "Known skills: {{known_skills}}\nJob required skills: {{required_skills}}\nJob preferred skills: {{preferred_skills}}\n\nResume text:\n---\n{{resume_text}}\n---\n\nReturn JSON with this exact shape: {\"name\": string|null, \"email\": string|null, \"phone\": string|null, \"skills\": string[], \"experience\": number|null, \"education\": string|null, \"projects\": [{\"title\": string, \"description\": string}]}",
+  "output_schema": {
+    "name": "string|null",
+    "email": "string|null",
+    "phone": "string|null",
+    "skills": "string[]",
+    "experience": "number|null",
+    "education": "string|null",
+    "projects": "{title,description}[]"
+  }
+}
