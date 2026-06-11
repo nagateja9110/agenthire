@@ -50,7 +50,7 @@ email/embedding/vector layers degrade gracefully.
 # 1. Databases (MongoDB :27017, Qdrant :6333)
 docker compose up -d
 
-# 2. Backend (http://localhost:5000)
+# 2. Backend (http://localhost:5001 - macOS AirPlay owns 5000)
 cd server && cp .env.example .env && npm install && npm run dev
 
 # 3. Frontend (http://localhost:3000)

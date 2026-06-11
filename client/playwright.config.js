@@ -12,7 +12,7 @@ module.exports = defineConfig({
   webServer: [
     {
       command: 'npm run dev --prefix ../server',
-      url: 'http://localhost:5000/health',
+      url: 'http://localhost:5001/health',
       reuseExistingServer: true,
       timeout: 30000,
     },

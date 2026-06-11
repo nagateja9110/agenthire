@@ -84,7 +84,7 @@ async function getOverview(userId) {
       agent: m._id,
       executions: m.executions,
       failures: m.failures,
-      avg_duration_ms: m.avg_duration_ms ? Math.round(m.avg_duration_ms) : null,
+      avg_duration_ms: m.avg_duration_ms != null ? Math.round(m.avg_duration_ms) : null,
     })),
     recent_workflows: recentWorkflows,
   };

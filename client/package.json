@@ -9,15 +9,23 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.4.0",
+    "@xyflow/react": "^12.11.0",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.17.0",
+    "next": "15.5.19",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "next": "15.5.19"
+    "react-hook-form": "^7.78.0",
+    "tailwind-merge": "^3.6.0",
+    "zod": "^4.4.3",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4",
     "eslint": "^9",
     "eslint-config-next": "15.5.19",
-    "@eslint/eslintrc": "^3"
+    "tailwindcss": "^4"
   }
 }
