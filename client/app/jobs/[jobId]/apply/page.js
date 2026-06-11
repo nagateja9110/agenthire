@@ -6,13 +6,16 @@ import { useParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { FileText, UploadCloud, CheckCircle2, Sparkles } from 'lucide-react';
+import { FileText, UploadCloud, CheckCircle2, Sparkles, ArrowLeft, X } from 'lucide-react';
 import { api } from '@/lib/api';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Input, Label, FieldError } from '@/components/ui/input';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Spinner, PageLoader } from '@/components/ui/spinner';
-import { StatusBadge } from '@/components/ui/badge';
+import { StatusBadge, FieldError } from '@/components/status-badge';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 const schema = z.object({
   name: z.string().min(2, 'Enter your full name'),
@@ -22,6 +25,8 @@ const schema = z.object({
 
 const MAX_SIZE = 5 * 1024 * 1024;
 
+const PIPELINE_PREVIEW = ['parse', 'embed', 'match', 'shortlist', 'review', 'decision'];
+
 export default function ApplyPage() {
   const { jobId } = useParams();
   const [job, setJob] = useState(null);
@@ -30,6 +35,7 @@ export default function ApplyPage() {
   const [serverError, setServerError] = useState('');
   const [phase, setPhase] = useState('form'); // form | submitting | done
   const [result, setResult] = useState(null);
+  const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef(null);
 
   const {
@@ -44,15 +50,15 @@ export default function ApplyPage() {
       .catch((err) => setServerError(err.message));
   }, [jobId]);
 
-  function onFileChange(e) {
-    const selected = e.target.files?.[0] || null;
+  function acceptFile(selected) {
     setFileError('');
-    if (selected && selected.type !== 'application/pdf') {
+    if (!selected) return;
+    if (selected.type !== 'application/pdf') {
       setFileError('Only PDF files are accepted');
       setFile(null);
       return;
     }
-    if (selected && selected.size > MAX_SIZE) {
+    if (selected.size > MAX_SIZE) {
       setFileError('Resume must be 5 MB or smaller');
       setFile(null);
       return;
@@ -89,120 +95,204 @@ export default function ApplyPage() {
 
   if (phase === 'done' && result) {
     return (
-      <main className="mx-auto max-w-xl px-4 py-16 text-center">
-        <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-500" />
-        <h1 className="mt-4 text-2xl font-bold">Application submitted!</h1>
-        <p className="mt-2 text-sm text-zinc-600">
-          Thanks for applying to <strong>{job.title}</strong>. Our AI hiring workflow has already
-          started processing your resume.
-        </p>
-        <Card className="mt-6 text-left">
-          <CardContent className="space-y-2 pt-4 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-zinc-500">Workflow status</span>
-              <StatusBadge status={result.workflow_status} />
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-zinc-500">Current step</span>
-              <code className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs">
-                {result.current_state || 'starting...'}
-              </code>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-zinc-500">Reference id</span>
-              <code className="text-xs text-zinc-400">{result.workflow_id}</code>
-            </div>
-          </CardContent>
-        </Card>
-        <p className="mt-4 text-xs text-zinc-400">
-          A recruiter reviews every AI decision. You&apos;ll hear from us by email.
-        </p>
-      </main>
+      <div className="relative min-h-screen">
+        <div className="dot-grid pointer-events-none absolute inset-0" />
+        <main className="animate-scale-in relative mx-auto max-w-xl px-4 py-20 text-center">
+          <div className="mx-auto flex size-16 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10">
+            <CheckCircle2 className="size-8 text-emerald-500" />
+          </div>
+          <h1 className="mt-5 text-3xl font-bold tracking-tight">Application submitted!</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Thanks for applying to <strong className="text-foreground">{job.title}</strong>. Our AI
+            hiring workflow is already processing your resume.
+          </p>
+
+          <Card className="mt-8 text-left">
+            <CardContent className="space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Workflow status</span>
+                <StatusBadge status={result.workflow_status} />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Current step</span>
+                <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                  {result.current_state || 'starting...'}
+                </code>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Reference id</span>
+                <code className="font-mono text-[11px] text-muted-foreground">
+                  {result.workflow_id}
+                </code>
+              </div>
+              <div className="border-t pt-3">
+                <div className="flex items-center justify-between gap-1">
+                  {PIPELINE_PREVIEW.map((step, i) => (
+                    <div key={step} className="flex flex-1 flex-col items-center gap-1">
+                      <div
+                        className={cn(
+                          'h-1 w-full rounded-full',
+                          i === 0 ? 'animate-pulse-dot bg-blue-500' : 'bg-muted'
+                        )}
+                      />
+                      <span className="text-[9px] text-muted-foreground">{step}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <p className="mt-5 text-xs text-muted-foreground">
+            A human recruiter reviews every AI decision. You&apos;ll hear from us by email.
+          </p>
+        </main>
+      </div>
     );
   }
 
   return (
-    <main className="mx-auto max-w-xl px-4 py-12">
-      <Link href={`/jobs/${jobId}`} className="text-xs text-zinc-500 hover:text-zinc-800">
-        ← Back to job
-      </Link>
-      <h1 className="mt-2 text-2xl font-bold">Apply: {job?.title}</h1>
-      <p className="mt-1 text-sm text-zinc-500">
-        Submit your details and a PDF resume. Processing starts immediately.
-      </p>
+    <div className="relative min-h-screen">
+      <div className="dot-grid pointer-events-none absolute inset-0" />
 
-      <Card className="mt-6">
-        <CardContent className="pt-5">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div>
-              <Label htmlFor="name">Full name</Label>
-              <Input id="name" placeholder="John Doe" {...register('name')} />
-              <FieldError>{errors.name?.message}</FieldError>
-            </div>
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="john@example.com" {...register('email')} />
-              <FieldError>{errors.email?.message}</FieldError>
-            </div>
-            <div>
-              <Label htmlFor="phone">Phone</Label>
-              <Input id="phone" placeholder="+91 98765 43210" {...register('phone')} />
-              <FieldError>{errors.phone?.message}</FieldError>
-            </div>
+      <header className="relative mx-auto flex max-w-xl items-center justify-between px-4 py-5">
+        <Link
+          href={`/jobs/${jobId}`}
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="size-3.5" /> Back to job
+        </Link>
+        <ThemeToggle />
+      </header>
 
-            <div>
-              <Label>Resume (PDF, max 5 MB)</Label>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="application/pdf"
-                className="hidden"
-                onChange={onFileChange}
-              />
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="mt-1 flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-zinc-300 bg-zinc-50 px-4 py-6 text-sm text-zinc-500 transition-colors hover:border-zinc-400 hover:bg-zinc-100"
-              >
-                {file ? (
+      <main className="relative mx-auto max-w-xl px-4 pb-16">
+        <h1 className="text-3xl font-bold tracking-tight">Apply: {job?.title}</h1>
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          Submit your details and a PDF resume - AI processing starts immediately, and a human
+          reviews every decision.
+        </p>
+
+        <Card className="mt-6">
+          <CardContent>
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+              <div className="space-y-1.5">
+                <Label htmlFor="name">Full name</Label>
+                <Input id="name" placeholder="John Doe" {...register('name')} />
+                <FieldError>{errors.name?.message}</FieldError>
+              </div>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="email">Email</Label>
+                  <Input id="email" type="email" placeholder="john@example.com" {...register('email')} />
+                  <FieldError>{errors.email?.message}</FieldError>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="phone">Phone</Label>
+                  <Input id="phone" placeholder="+91 98765 43210" {...register('phone')} />
+                  <FieldError>{errors.phone?.message}</FieldError>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Resume</Label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="application/pdf"
+                  className="hidden"
+                  onChange={(e) => acceptFile(e.target.files?.[0] || null)}
+                />
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => fileInputRef.current?.click()}
+                  onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragging(true);
+                  }}
+                  onDragLeave={() => setDragging(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragging(false);
+                    acceptFile(e.dataTransfer.files?.[0] || null);
+                  }}
+                  className={cn(
+                    'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-8 text-sm transition-all',
+                    dragging
+                      ? 'scale-[1.01] border-blue-500 bg-blue-500/5'
+                      : file
+                        ? 'border-emerald-500/40 bg-emerald-500/5'
+                        : 'border-border bg-muted/40 hover:border-muted-foreground/40 hover:bg-muted/70'
+                  )}
+                >
+                  {file ? (
+                    <div className="flex items-center gap-3">
+                      <div className="flex size-10 items-center justify-center rounded-lg border border-emerald-500/30 bg-emerald-500/10">
+                        <FileText className="size-5 text-emerald-600 dark:text-emerald-400" />
+                      </div>
+                      <div className="text-left">
+                        <p className="font-medium">{file.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(file.size / 1024).toFixed(0)} KB · PDF
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-7"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFile(null);
+                        }}
+                      >
+                        <X className="size-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex size-10 items-center justify-center rounded-lg border bg-background shadow-sm">
+                        <UploadCloud className="size-5 text-muted-foreground" />
+                      </div>
+                      <p className="font-medium">
+                        Drop your resume here or{' '}
+                        <span className="text-blue-600 dark:text-blue-400">browse</span>
+                      </p>
+                      <p className="text-xs text-muted-foreground">PDF only · max 5 MB</p>
+                    </>
+                  )}
+                </div>
+                <FieldError>{fileError}</FieldError>
+              </div>
+
+              {serverError && (
+                <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {serverError}
+                </p>
+              )}
+
+              <Button type="submit" className="w-full" size="lg" disabled={phase === 'submitting'}>
+                {phase === 'submitting' ? (
                   <>
-                    <FileText className="h-5 w-5 text-zinc-700" />
-                    <span className="font-medium text-zinc-800">{file.name}</span>
-                    <span className="text-xs text-zinc-400">
-                      ({(file.size / 1024).toFixed(0)} KB)
-                    </span>
+                    <Spinner className="text-primary-foreground" /> Uploading & starting AI workflow...
                   </>
                 ) : (
                   <>
-                    <UploadCloud className="h-5 w-5" /> Click to choose your PDF resume
+                    <Sparkles className="size-4" /> Submit application
                   </>
                 )}
-              </button>
-              <FieldError>{fileError}</FieldError>
-            </div>
+              </Button>
 
-            {serverError && <p className="text-sm text-red-600">{serverError}</p>}
-
-            <Button type="submit" className="w-full" size="lg" disabled={phase === 'submitting'}>
-              {phase === 'submitting' ? (
-                <>
-                  <Spinner className="text-white" /> Uploading & starting AI workflow...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4" /> Submit application
-                </>
+              {phase === 'submitting' && (
+                <p className="text-center text-xs text-muted-foreground">
+                  Parsing your resume and starting the hiring workflow - this takes a few seconds.
+                </p>
               )}
-            </Button>
-
-            {phase === 'submitting' && (
-              <p className="text-center text-xs text-zinc-400">
-                Parsing your resume and starting the hiring workflow - this takes a few seconds.
-              </p>
-            )}
-          </form>
-        </CardContent>
-      </Card>
-    </main>
+            </form>
+          </CardContent>
+        </Card>
+      </main>
+    </div>
   );
 }

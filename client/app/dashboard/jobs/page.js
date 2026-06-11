@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Copy, Check, ExternalLink } from 'lucide-react';
+import { toast } from 'sonner';
+import { Plus, Copy, ExternalLink, Briefcase, Clock, Sparkles } from 'lucide-react';
 import { api } from '@/lib/api';
-import { formatDate } from '@/lib/utils';
+import { timeAgo } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +14,6 @@ import { PageLoader } from '@/components/ui/spinner';
 export default function JobsPage() {
   const [jobs, setJobs] = useState(null);
   const [error, setError] = useState('');
-  const [copiedId, setCopiedId] = useState(null);
 
   useEffect(() => {
     api('/jobs?mine=true&limit=100')
@@ -23,79 +23,99 @@ export default function JobsPage() {
 
   async function copyLink(jobId) {
     await navigator.clipboard.writeText(`${window.location.origin}/jobs/${jobId}/apply`);
-    setCopiedId(jobId);
-    setTimeout(() => setCopiedId(null), 1500);
+    toast.success('Public apply link copied', {
+      description: 'Share it anywhere - candidates apply without an account.',
+    });
   }
 
   if (!jobs && !error) return <PageLoader label="Loading jobs..." />;
-  if (error) return <p className="py-10 text-sm text-red-600">{error}</p>;
+  if (error) return <p className="py-10 text-sm text-destructive">{error}</p>;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold">Jobs</h1>
-          <p className="text-sm text-zinc-500">Share the public apply link with candidates.</p>
+          <h1 className="text-2xl font-bold tracking-tight">Jobs</h1>
+          <p className="text-sm text-muted-foreground">
+            Each job gets a public apply link that auto-starts the AI workflow.
+          </p>
         </div>
         <Link href="/dashboard/jobs/create">
           <Button>
-            <Plus className="h-4 w-4" /> Create job
+            <Plus className="size-4" /> Create job
           </Button>
         </Link>
       </div>
 
       {jobs.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center text-sm text-zinc-400">
-            No jobs yet. Create your first job to get a public apply link.
+          <CardContent className="flex flex-col items-center py-16 text-center">
+            <div className="flex size-12 items-center justify-center rounded-xl border bg-muted">
+              <Briefcase className="size-5 text-muted-foreground" />
+            </div>
+            <p className="mt-4 text-sm font-medium">No jobs yet</p>
+            <p className="mt-1 max-w-xs text-xs text-muted-foreground">
+              Create your first job to get a public apply link you can share with candidates.
+            </p>
+            <Link href="/dashboard/jobs/create">
+              <Button size="sm" className="mt-4">
+                <Plus className="size-4" /> Create job
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="stagger grid gap-4 lg:grid-cols-2">
           {jobs.map((job) => (
-            <Card key={job._id}>
-              <CardContent className="pt-4">
+            <Card key={job._id} className="hover-lift group relative overflow-hidden">
+              <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-blue-500 to-violet-500 opacity-0 transition-opacity group-hover:opacity-100" />
+              <CardContent>
                 <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <h3 className="font-semibold">{job.title}</h3>
-                    <p className="text-xs text-zinc-500">
-                      Created {formatDate(job.created_at)} · min {job.min_experience} yr exp
+                  <div className="min-w-0">
+                    <h3 className="truncate font-semibold">{job.title}</h3>
+                    <p className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1">
+                        <Clock className="size-3" /> {job.min_experience}+ yrs
+                      </span>
+                      <span>created {timeAgo(job.created_at)}</span>
                     </p>
                   </div>
                   <Link href={`/jobs/${job._id}`} target="_blank">
-                    <Button variant="ghost" size="sm" title="Open public job page">
-                      <ExternalLink className="h-4 w-4" />
+                    <Button variant="ghost" size="icon" className="size-8" title="Open public job page">
+                      <ExternalLink className="size-4" />
                     </Button>
                   </Link>
                 </div>
 
-                <p className="mt-2 line-clamp-2 text-sm text-zinc-600">{job.description}</p>
+                <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{job.description}</p>
 
-                <div className="mt-3 flex flex-wrap gap-1.5">
+                <div className="mt-4 flex flex-wrap gap-1.5">
                   {job.required_skills.map((s) => (
-                    <Badge key={s} className="border-zinc-200 bg-zinc-100 text-zinc-700">
+                    <Badge key={s} variant="secondary" className="font-normal">
                       {s}
                     </Badge>
                   ))}
                   {job.preferred_skills.map((s) => (
-                    <Badge key={s} className="border-blue-100 bg-blue-50 text-blue-700">
-                      {s}
+                    <Badge
+                      key={s}
+                      variant="outline"
+                      className="border-blue-500/30 bg-blue-500/5 font-normal text-blue-600 dark:text-blue-400"
+                    >
+                      <Sparkles className="size-3" /> {s}
                     </Badge>
                   ))}
                 </div>
 
-                <div className="mt-4">
+                <div className="mt-5 flex items-center justify-between border-t pt-4">
                   <Button variant="outline" size="sm" onClick={() => copyLink(job._id)}>
-                    {copiedId === job._id ? (
-                      <>
-                        <Check className="h-3.5 w-3.5 text-emerald-600" /> Copied!
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-3.5 w-3.5" /> Copy public apply link
-                      </>
-                    )}
+                    <Copy className="size-3.5" /> Copy apply link
                   </Button>
+                  <Link
+                    href={`/dashboard/candidates?job=${job._id}`}
+                    className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    View candidates →
+                  </Link>
                 </div>
               </CardContent>
             </Card>

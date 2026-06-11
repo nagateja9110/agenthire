@@ -62,6 +62,35 @@ async function getOverview(userId) {
     ]),
   ]);
 
+  // Applications per day for the last 14 days (zero-filled) for trend charts.
+  // All bucketing in UTC to match $dateToString's default timezone.
+  const now = new Date();
+  const since = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 13));
+  const perDay = await Candidate.aggregate([
+    { $match: { job_id: { $in: ownJobIds }, created_at: { $gte: since } } },
+    {
+      $group: {
+        _id: { $dateToString: { format: '%Y-%m-%d', date: '$created_at' } },
+        applications: { $sum: 1 },
+        shortlisted: {
+          $sum: { $cond: [{ $in: ['$status', ['shortlisted', 'invited']] }, 1, 0] },
+        },
+      },
+    },
+  ]);
+  const byDay = Object.fromEntries(perDay.map((d) => [d._id, d]));
+  const timeline = [];
+  for (let i = 0; i < 14; i += 1) {
+    const day = new Date(since);
+    day.setUTCDate(since.getUTCDate() + i);
+    const key = day.toISOString().slice(0, 10);
+    timeline.push({
+      date: key,
+      applications: byDay[key] ? byDay[key].applications : 0,
+      shortlisted: byDay[key] ? byDay[key].shortlisted : 0,
+    });
+  }
+
   const statusCounts = Object.fromEntries(candidatesByStatus.map((s) => [s._id, s.count]));
   const shortlistedCount =
     (statusCounts[CANDIDATE_STATUS.SHORTLISTED] || 0) + (statusCounts[CANDIDATE_STATUS.INVITED] || 0);
@@ -80,6 +109,7 @@ async function getOverview(userId) {
       average_match_score: avgScoreAgg.length ? Math.round(avgScoreAgg[0].avg) : null,
     },
     candidates_by_status: statusCounts,
+    timeline,
     agent_metrics: agentMetrics.map((m) => ({
       agent: m._id,
       executions: m.executions,

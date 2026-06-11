@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo } from 'react';
-import { ReactFlow, Background, Controls, MarkerType } from '@xyflow/react';
+import { useEffect, useMemo, useRef } from 'react';
+import { ReactFlow, Background, MarkerType } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
 const AGENT_LABELS = {
@@ -103,20 +103,38 @@ export default function WorkflowCanvas({ nodeStates = [], colors = {}, activeSta
     [stateByAgent]
   );
 
+  const instanceRef = useRef(null);
+
+  // Re-fit whenever node states change or the container resizes -
+  // the initial fitView can run before the card settles.
+  useEffect(() => {
+    const id = setTimeout(() => instanceRef.current?.fitView({ padding: 0.12 }), 50);
+    return () => clearTimeout(id);
+  }, [nodeStates]);
+
   return (
-    <div className="h-[340px] w-full rounded-xl border border-zinc-200 bg-white">
+    <div className="h-[340px] w-full overflow-hidden rounded-xl border bg-background/60">
       <ReactFlow
         nodes={nodes}
         edges={edges}
+        minZoom={0.15}
         fitView
-        fitViewOptions={{ padding: 0.15 }}
+        fitViewOptions={{ padding: 0.12 }}
+        onInit={(instance) => {
+          instanceRef.current = instance;
+          instance.fitView({ padding: 0.12 });
+        }}
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={false}
+        panOnDrag={false}
+        zoomOnScroll={false}
+        zoomOnPinch={false}
+        zoomOnDoubleClick={false}
+        preventScrolling={false}
         proOptions={{ hideAttribution: true }}
       >
-        <Background gap={18} color="#f1f1f4" />
-        <Controls showInteractive={false} />
+        <Background gap={18} color="var(--border)" />
       </ReactFlow>
     </div>
   );

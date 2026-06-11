@@ -1,33 +1,68 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Users } from 'lucide-react';
 import { api } from '@/lib/api';
-import { formatDate } from '@/lib/utils';
+import { timeAgo, initials, scoreColor, cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
-import { StatusBadge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { StatusBadge } from '@/components/status-badge';
 import { PageLoader } from '@/components/ui/spinner';
 
 const STATUSES = ['all', 'applied', 'processing', 'shortlisted', 'hold', 'rejected', 'invited'];
 
-export default function CandidatesPage() {
+function ScoreCell({ score }) {
+  if (score == null) return <span className="text-muted-foreground">—</span>;
+  return (
+    <div className="flex items-center gap-2.5">
+      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
+        <div
+          className={cn(
+            'h-full rounded-full transition-all',
+            score >= 80 ? 'bg-emerald-500' : score >= 60 ? 'bg-amber-500' : 'bg-red-500'
+          )}
+          style={{ width: `${score}%` }}
+        />
+      </div>
+      <span className={cn('text-sm font-semibold tabular-nums', scoreColor(score))}>{score}</span>
+    </div>
+  );
+}
+
+function CandidatesView() {
+  const searchParams = useSearchParams();
+  const jobFilter = searchParams.get('job');
   const [candidates, setCandidates] = useState(null);
   const [filter, setFilter] = useState('all');
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const query = filter === 'all' ? '' : `&status=${filter}`;
-    api(`/candidates?limit=100${query}`)
+    const params = new URLSearchParams({ limit: '100' });
+    if (filter !== 'all') params.set('status', filter);
+    if (jobFilter) params.set('job_id', jobFilter);
+    api(`/candidates?${params}`)
       .then((data) => setCandidates(data.items))
       .catch((err) => setError(err.message));
-  }, [filter]);
+  }, [filter, jobFilter]);
 
-  if (error) return <p className="py-10 text-sm text-red-600">{error}</p>;
+  if (error) return <p className="py-10 text-sm text-destructive">{error}</p>;
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold">Candidates</h1>
-        <p className="text-sm text-zinc-500">Everyone who applied to your jobs.</p>
+        <h1 className="text-2xl font-bold tracking-tight">Candidates</h1>
+        <p className="text-sm text-muted-foreground">
+          Everyone who applied to your jobs, scored by the matching agent.
+        </p>
       </div>
 
       <div className="flex flex-wrap gap-1.5">
@@ -35,11 +70,12 @@ export default function CandidatesPage() {
           <button
             key={s}
             onClick={() => setFilter(s)}
-            className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+            className={cn(
+              'cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition-all',
               filter === s
-                ? 'border-zinc-900 bg-zinc-900 text-white'
-                : 'border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50'
-            }`}
+                ? 'border-foreground bg-foreground text-background shadow-sm'
+                : 'bg-card text-muted-foreground hover:bg-accent hover:text-foreground'
+            )}
           >
             {s.replace(/_/g, ' ')}
           </button>
@@ -50,63 +86,72 @@ export default function CandidatesPage() {
         <PageLoader label="Loading candidates..." />
       ) : candidates.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center text-sm text-zinc-400">
-            No candidates {filter !== 'all' ? `with status "${filter}"` : 'yet'}.
+          <CardContent className="flex flex-col items-center py-16 text-center">
+            <div className="flex size-12 items-center justify-center rounded-xl border bg-muted">
+              <Users className="size-5 text-muted-foreground" />
+            </div>
+            <p className="mt-4 text-sm font-medium">
+              No candidates {filter !== 'all' ? `with status "${filter.replace(/_/g, ' ')}"` : 'yet'}
+            </p>
+            <p className="mt-1 max-w-xs text-xs text-muted-foreground">
+              Share a job&apos;s public apply link - applications appear here in real time.
+            </p>
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <CardContent className="overflow-x-auto px-0 pb-0 pt-0">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-zinc-100 text-left text-xs uppercase tracking-wide text-zinc-400">
-                  <th className="px-5 py-3 font-medium">Candidate</th>
-                  <th className="px-5 py-3 font-medium">Job</th>
-                  <th className="px-5 py-3 font-medium">Match score</th>
-                  <th className="px-5 py-3 font-medium">Status</th>
-                  <th className="px-5 py-3 font-medium">Applied</th>
-                </tr>
-              </thead>
-              <tbody>
+        <Card className="py-0">
+          <CardContent className="px-0">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="pl-5">Candidate</TableHead>
+                  <TableHead>Job</TableHead>
+                  <TableHead>Match score</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="pr-5 text-right">Applied</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {candidates.map((c) => (
-                  <tr key={c._id} className="border-b border-zinc-50 last:border-0">
-                    <td className="px-5 py-3">
-                      <p className="font-medium">{c.name}</p>
-                      <p className="text-xs text-zinc-500">{c.email}</p>
-                    </td>
-                    <td className="px-5 py-3 text-zinc-600">{c.job_id?.title || '-'}</td>
-                    <td className="px-5 py-3">
-                      {c.match_score == null ? (
-                        <span className="text-zinc-400">-</span>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <div className="h-1.5 w-16 overflow-hidden rounded-full bg-zinc-100">
-                            <div
-                              className={`h-full ${
-                                c.match_score >= 80
-                                  ? 'bg-emerald-500'
-                                  : c.match_score >= 60
-                                  ? 'bg-amber-500'
-                                  : 'bg-red-500'
-                              }`}
-                              style={{ width: `${c.match_score}%` }}
-                            />
-                          </div>
-                          <span className="font-medium">{c.match_score}</span>
+                  <TableRow key={c._id}>
+                    <TableCell className="pl-5">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="size-8">
+                          <AvatarFallback className="bg-gradient-to-br from-blue-500/15 to-violet-500/15 text-[10px] font-semibold">
+                            {initials(c.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-medium">{c.name}</p>
+                          <p className="text-xs text-muted-foreground">{c.email}</p>
                         </div>
-                      )}
-                    </td>
-                    <td className="px-5 py-3">
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{c.job_id?.title || '—'}</TableCell>
+                    <TableCell>
+                      <ScoreCell score={c.match_score} />
+                    </TableCell>
+                    <TableCell>
                       <StatusBadge status={c.status} />
-                    </td>
-                    <td className="px-5 py-3 text-xs text-zinc-500">{formatDate(c.created_at)}</td>
-                  </tr>
+                    </TableCell>
+                    <TableCell className="pr-5 text-right text-xs text-muted-foreground">
+                      {timeAgo(c.created_at)}
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       )}
     </div>
+  );
+}
+
+export default function CandidatesPage() {
+  return (
+    <Suspense fallback={<PageLoader label="Loading candidates..." />}>
+      <CandidatesView />
+    </Suspense>
   );
 }
