@@ -1,0 +1,135 @@
+<svg viewBox="0 0 1200 860" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+
+  <rect width="1200" height="860" fill="#ffffff"/>
+
+  <!-- Title -->
+  <text x="600" y="34" text-anchor="middle" font-size="22" font-weight="700" fill="#0f172a">AgentHire — System Architecture</text>
+  <text x="600" y="56" text-anchor="middle" font-size="13" fill="#64748b">Spec-driven, multi-agent recruitment pipeline</text>
+
+  <!-- Row 1: Browsers -->
+  <rect x="160" y="72" width="340" height="60" rx="10" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="1.5"/>
+  <text x="330" y="96" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">Recruiter Dashboard</text>
+  <text x="330" y="115" text-anchor="middle" font-size="11" fill="#64748b">authenticated (JWT)</text>
+
+  <rect x="700" y="72" width="340" height="60" rx="10" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="1.5"/>
+  <text x="870" y="96" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">Public Apply Page</text>
+  <text x="870" y="115" text-anchor="middle" font-size="11" fill="#64748b">candidate, no login — PDF resume upload</text>
+
+  <!-- Arrows to frontend -->
+  <line x1="350" y1="132" x2="585" y2="178" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="850" y1="132" x2="615" y2="178" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Row 2: Frontend -->
+  <rect x="300" y="180" width="600" height="60" rx="10" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="600" y="204" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">Next.js 15 Frontend — Vercel</text>
+  <text x="600" y="223" text-anchor="middle" font-size="11" fill="#64748b">agenthire-rho.vercel.app — dashboard, jobs, candidates, workflow canvas</text>
+
+  <!-- Arrow to backend -->
+  <line x1="600" y1="240" x2="600" y2="288" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Row 3: Backend -->
+  <rect x="300" y="290" width="600" height="68" rx="10" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="600" y="314" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">Express API — Render</text>
+  <text x="600" y="333" text-anchor="middle" font-size="11" fill="#64748b">agenthire-server.onrender.com</text>
+  <text x="600" y="349" text-anchor="middle" font-size="11" fill="#64748b">auth · jobs · candidates · workflows · analytics</text>
+
+  <!-- Arrow to LangGraph -->
+  <line x1="600" y1="358" x2="600" y2="398" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- LangGraph container -->
+  <rect x="50" y="400" width="1100" height="270" rx="12" fill="#fdf4ff" stroke="#d946ef" stroke-width="1.5"/>
+  <text x="600" y="428" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">LangGraph Hiring Workflow</text>
+  <text x="600" y="446" text-anchor="middle" font-size="11" fill="#64748b">auto-starts on resume upload · checkpointed in MongoDB · rules snapshotted from /specs</text>
+
+  <!-- Agent boxes -->
+  <!-- 1 Resume Parser -->
+  <rect x="74" y="460" width="140" height="90" rx="8" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="144" y="498" text-anchor="middle" font-size="12" font-weight="700" fill="#0f172a">Resume</text>
+  <text x="144" y="514" text-anchor="middle" font-size="12" font-weight="700" fill="#0f172a">Parser</text>
+
+  <!-- arrow -->
+  <line x1="214" y1="505" x2="226" y2="505" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- 2 Embedding Agent -->
+  <rect x="226" y="460" width="140" height="90" rx="8" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="296" y="498" text-anchor="middle" font-size="12" font-weight="700" fill="#0f172a">Embedding</text>
+  <text x="296" y="514" text-anchor="middle" font-size="12" font-weight="700" fill="#0f172a">Agent</text>
+
+  <line x1="366" y1="505" x2="378" y2="505" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- 3 Matching Agent -->
+  <rect x="378" y="460" width="140" height="90" rx="8" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="448" y="498" text-anchor="middle" font-size="12" font-weight="700" fill="#0f172a">Matching</text>
+  <text x="448" y="514" text-anchor="middle" font-size="12" font-weight="700" fill="#0f172a">Agent</text>
+
+  <line x1="518" y1="505" x2="530" y2="505" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- 4 Shortlisting Agent -->
+  <rect x="530" y="460" width="140" height="90" rx="8" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="600" y="498" text-anchor="middle" font-size="12" font-weight="700" fill="#0f172a">Shortlisting</text>
+  <text x="600" y="514" text-anchor="middle" font-size="12" font-weight="700" fill="#0f172a">Agent</text>
+
+  <line x1="670" y1="505" x2="682" y2="505" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- 5 Human Approval (highlighted) -->
+  <rect x="682" y="460" width="140" height="90" rx="8" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="752" y="492" text-anchor="middle" font-size="12" font-weight="700" fill="#0f172a">Human</text>
+  <text x="752" y="508" text-anchor="middle" font-size="12" font-weight="700" fill="#0f172a">Approval</text>
+  <text x="752" y="524" text-anchor="middle" font-size="9" fill="#92400e">pauses workflow</text>
+
+  <line x1="822" y1="505" x2="834" y2="505" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- 6 Interview Agent -->
+  <rect x="834" y="460" width="140" height="90" rx="8" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="904" y="498" text-anchor="middle" font-size="12" font-weight="700" fill="#0f172a">Interview</text>
+  <text x="904" y="514" text-anchor="middle" font-size="12" font-weight="700" fill="#0f172a">Agent</text>
+
+  <line x1="974" y1="505" x2="986" y2="505" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- 7 Email Agent -->
+  <rect x="986" y="460" width="140" height="90" rx="8" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="1056" y="498" text-anchor="middle" font-size="12" font-weight="700" fill="#0f172a">Email</text>
+  <text x="1056" y="514" text-anchor="middle" font-size="12" font-weight="700" fill="#0f172a">Agent</text>
+
+  <!-- Reject shortcut: shortlisting -> email -->
+  <path d="M600,550 C600,610 1056,610 1056,552" fill="none" stroke="#d946ef" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+  <text x="828" y="628" text-anchor="middle" font-size="11" fill="#a21caf">rejected / hold candidates skip ahead to the Email Agent</text>
+
+  <text x="600" y="658" text-anchor="middle" font-size="11" fill="#64748b">Approved candidates continue: Human Approval → Interview Agent → Email Agent</text>
+
+  <!-- Arrows down to supporting services -->
+  <line x1="180" y1="670" x2="180" y2="698" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+  <line x1="460" y1="670" x2="460" y2="698" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+  <line x1="740" y1="670" x2="740" y2="698" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+  <line x1="1020" y1="670" x2="1020" y2="698" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+
+  <!-- Row 5: Supporting services -->
+  <rect x="50" y="700" width="260" height="80" rx="10" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.5"/>
+  <text x="180" y="726" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">MongoDB</text>
+  <text x="180" y="745" text-anchor="middle" font-size="11" fill="#64748b">app data +</text>
+  <text x="180" y="760" text-anchor="middle" font-size="11" fill="#64748b">LangGraph checkpoints</text>
+
+  <rect x="330" y="700" width="260" height="80" rx="10" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.5"/>
+  <text x="460" y="726" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">Qdrant</text>
+  <text x="460" y="745" text-anchor="middle" font-size="11" fill="#64748b">vector store for</text>
+  <text x="460" y="760" text-anchor="middle" font-size="11" fill="#64748b">resume + policy RAG</text>
+
+  <rect x="610" y="700" width="260" height="80" rx="10" fill="#fff7ed" stroke="#f97316" stroke-width="1.5"/>
+  <text x="740" y="726" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">Groq → OpenRouter</text>
+  <text x="740" y="745" text-anchor="middle" font-size="11" fill="#64748b">primary LLM, automatic</text>
+  <text x="740" y="760" text-anchor="middle" font-size="11" fill="#64748b">fallback on failure</text>
+
+  <rect x="890" y="700" width="260" height="80" rx="10" fill="#fff7ed" stroke="#f97316" stroke-width="1.5"/>
+  <text x="1020" y="726" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">Resend</text>
+  <text x="1020" y="745" text-anchor="middle" font-size="11" fill="#64748b">interview invite &amp;</text>
+  <text x="1020" y="760" text-anchor="middle" font-size="11" fill="#64748b">rejection emails</text>
+
+  <!-- Footer -->
+  <text x="600" y="820" text-anchor="middle" font-size="12" fill="#0f172a">Live app: agenthire-rho.vercel.app</text>
+  <text x="600" y="840" text-anchor="middle" font-size="12" fill="#0f172a">API: agenthire-server.onrender.com</text>
+</svg>

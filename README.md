@@ -26,6 +26,10 @@ retries on failure, etc.) lives in plain JSON files under [`/specs`](specs) — 
 hiring policy can be tuned without touching code, and every workflow run is traceable
 back to the exact rules it was evaluated against.
 
+## Architecture
+
+![AgentHire architecture](docs/architecture.svg)
+
 ## How it works
 
 ```
