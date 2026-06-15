@@ -1,4 +1,5 @@
 const { z } = require('zod');
+const { CANDIDATE_STATUS } = require('../constants');
 
 const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid id');
 
@@ -13,7 +14,7 @@ const listCandidatesQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   job_id: objectId.optional(),
-  status: z.enum(['applied', 'processing', 'shortlisted', 'hold', 'rejected', 'invited']).optional(),
+  status: z.enum(Object.values(CANDIDATE_STATUS)).optional(),
 });
 
 module.exports = { uploadCandidateSchema, listCandidatesQuerySchema, objectId };
