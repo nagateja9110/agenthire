@@ -67,16 +67,29 @@ runs, with logs, retry counts, and timing for every step.
 
 ## Screenshots
 
-> _Add screenshots to `docs/screenshots/` and reference them here._
+**Landing page** — the pitch in one screen: spec-driven, LangGraph-orchestrated, RAG-backed, human-in-the-loop hiring.
+![Landing page](docs/screenshots/landing.png)
 
-| | |
-|---|---|
-| Landing page | `docs/screenshots/landing.png` |
-| Recruiter dashboard (overview stats) | `docs/screenshots/dashboard.png` |
-| Public job apply page (candidate view) | `docs/screenshots/apply.png` |
-| Live workflow canvas (agents running) | `docs/screenshots/workflow-canvas.png` |
-| Candidates list with status filters | `docs/screenshots/candidates.png` |
-| Analytics page | `docs/screenshots/analytics.png` |
+**Recruiter dashboard** — open jobs, candidates, workflow completion and recent activity at a glance.
+![Recruiter dashboard](docs/screenshots/dashboard.png)
+
+**Public apply page** — what a candidate sees: the role, required skills, and a one-step resume upload that kicks off the AI pipeline.
+![Public apply page](docs/screenshots/apply.png)
+
+**Live workflow canvas** — each candidate's run through the 7-agent LangGraph pipeline, with a live execution graph and step-by-step log (resume parsing, embedding, matching, approval, interview, email).
+![Live workflow canvas](docs/screenshots/workflow-canvas.png)
+
+**Candidates list** — every applicant across all jobs with their AI match score and current pipeline status (applied, shortlisted, hold, interviewed, rejected...).
+![Candidates list](docs/screenshots/candidates.png)
+
+**Analytics** — shortlist rate, workflow completion/failure rates, application trends, and per-agent execution time.
+![Analytics](docs/screenshots/analytics.png)
+
+**Interview invite email** — once a recruiter approves a candidate, they automatically get an email with a personal link to their AI voice interview.
+![Interview invite email](docs/screenshots/email-invite.png)
+
+**AI voice interview** — the candidate answers role-specific questions by voice or text; answers are scored before they reach the recruiter.
+![AI voice interview](docs/screenshots/ai-interviewer.png)
 
 ## Stack
 
