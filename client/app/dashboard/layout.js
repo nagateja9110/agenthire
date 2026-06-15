@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import {
@@ -12,7 +13,6 @@ import {
   LogOut,
   Plus,
   ChevronsUpDown,
-  Bot,
   ExternalLink,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
@@ -101,9 +101,7 @@ export default function DashboardLayout({ children }) {
       {/* sidebar */}
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r bg-sidebar md:flex">
         <div className="flex items-center gap-2 px-5 pt-5 pb-4">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-violet-600 text-white shadow-sm">
-            <Bot className="size-4.5" />
-          </div>
+          <Image src="/logo.png" alt="AgentHire logo" width={32} height={32} className="rounded-lg shadow-sm" />
           <div>
             <p className="text-sm leading-none font-bold tracking-tight">
               Agent<span className="text-blue-600 dark:text-blue-400">Hire</span>
@@ -173,8 +171,11 @@ export default function DashboardLayout({ children }) {
         <header className="sticky top-0 z-20 flex h-14 items-center justify-between gap-3 border-b bg-background/80 px-4 backdrop-blur md:px-6">
           <div className="flex min-w-0 items-center gap-2">
             {/* mobile brand */}
-            <Link href="/dashboard" className="mr-1 text-sm font-bold md:hidden">
-              Agent<span className="text-blue-600 dark:text-blue-400">Hire</span>
+            <Link href="/dashboard" className="mr-1 flex items-center gap-2 text-sm font-bold md:hidden">
+              <Image src="/logo.png" alt="AgentHire logo" width={22} height={22} className="rounded" />
+              <span>
+                Agent<span className="text-blue-600 dark:text-blue-400">Hire</span>
+              </span>
             </Link>
             <nav className="hidden items-center gap-1.5 text-sm text-muted-foreground md:flex">
               {crumbs.map((crumb, i) => {

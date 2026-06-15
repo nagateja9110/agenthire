@@ -17,6 +17,10 @@ export const metadata = {
   title: 'AgentHire - AI Recruitment Platform',
   description:
     'Spec-driven multi-agent recruitment platform: AI workflows, RAG matching, human approval checkpoints.',
+  icons: {
+    icon: '/logo.png',
+    apple: '/logo.png',
+  },
 };
 
 export default function RootLayout({ children }) {

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import {
@@ -71,9 +72,12 @@ export default function Home() {
 
       {/* nav */}
       <header className="relative mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-        <span className="text-lg font-bold tracking-tight">
-          Agent<span className="text-blue-600 dark:text-blue-400">Hire</span>
-        </span>
+        <Link href="/" className="flex items-center gap-2">
+          <Image src="/logo.png" alt="AgentHire logo" width={30} height={30} className="rounded-md" priority />
+          <span className="text-lg font-bold tracking-tight">
+            Agent<span className="text-blue-600 dark:text-blue-400">Hire</span>
+          </span>
+        </Link>
         <div className="flex items-center gap-2">
           <ThemeToggle />
           <Link href="/login">
