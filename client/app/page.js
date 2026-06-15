@@ -120,21 +120,6 @@ export default function Home() {
             - then wait for your approval before inviting anyone to interview.
           </p>
 
-          <div
-            className="animate-fade-up mt-8 flex justify-center gap-3"
-            style={{ animationDelay: '240ms' }}
-          >
-            <Link href="/signup">
-              <Button size="lg" className="shadow-lg shadow-blue-500/10">
-                Start recruiting free <ArrowRight className="size-4" />
-              </Button>
-            </Link>
-            <Link href="/login">
-              <Button size="lg" variant="outline" className="bg-card/60 backdrop-blur">
-                Log in
-              </Button>
-            </Link>
-          </div>
         </div>
 
         {/* pipeline strip */}

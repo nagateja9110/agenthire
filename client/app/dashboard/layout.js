@@ -13,7 +13,6 @@ import {
   LogOut,
   Plus,
   ChevronsUpDown,
-  ExternalLink,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
 import { cn, initials } from '@/lib/utils';
@@ -146,11 +145,6 @@ export default function DashboardLayout({ children }) {
                 Signed in as <span className="font-medium">{user?.email}</span>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/" target="_blank">
-                  <ExternalLink className="size-4" /> Public site
-                </Link>
-              </DropdownMenuItem>
               <DropdownMenuItem
                 variant="destructive"
                 onClick={() => {
