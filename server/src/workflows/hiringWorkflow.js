@@ -242,6 +242,7 @@ const emailNode = makeNode(
         workflowId: state.workflow_id,
         questions: state.interview.questions,
         rubric: state.interview.rubric,
+        codingTasks: state.interview.coding_tasks,
       });
       interviewLink = created && created.link;
     }

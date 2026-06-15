@@ -5,4 +5,9 @@ const answerSchema = z.object({
   mode: z.enum(['voice', 'text']).optional(),
 });
 
-module.exports = { answerSchema };
+const codeSchema = z.object({
+  code: z.string().max(20000).default(''),
+  language: z.string().max(30).default('javascript'),
+});
+
+module.exports = { answerSchema, codeSchema };

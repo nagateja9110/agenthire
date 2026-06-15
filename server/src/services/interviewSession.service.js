@@ -5,6 +5,7 @@ const Job = require('../models/Job');
 const env = require('../config/env');
 const { specs } = require('../utils/specLoader');
 const { invokeLLM, parseJSONResponse, renderTemplate } = require('../agents/llm');
+const voiceService = require('./voice.service');
 const { ApiError } = require('../utils/errors');
 const { INTERVIEW_STATUS, CANDIDATE_STATUS } = require('../constants');
 
@@ -29,10 +30,11 @@ function targetForExperience(years) {
  * Stores the resume + job context the conductor uses to generate adaptive,
  * resume-grounded questions live during the interview.
  */
-async function createSession({ candidate, job, hiringSpec, workflowId, questions, rubric }) {
+async function createSession({ candidate, job, hiringSpec, workflowId, questions, rubric, codingTasks }) {
   const parsed = candidate.parsed_resume_json || {};
   const token = crypto.randomBytes(24).toString('base64url');
   const expires = new Date(Date.now() + EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+  const codingTask = Array.isArray(codingTasks) && codingTasks.length ? codingTasks[0] : null;
 
   const session = await InterviewSession.create({
     token,
@@ -45,6 +47,7 @@ async function createSession({ candidate, job, hiringSpec, workflowId, questions
       .filter((q) => q && q.question)
       .map((q) => ({ topic: q.topic || 'General', question: q.question })),
     rubric: rubric || [],
+    coding_task: codingTask ? { title: codingTask.title || null, task: codingTask.task || null } : undefined,
     resume_context: {
       skills: Array.isArray(parsed.skills) ? parsed.skills : [],
       experience: typeof parsed.experience === 'number' ? parsed.experience : null,
@@ -183,6 +186,11 @@ async function loadByToken(token) {
   return session;
 }
 
+// A coding task was generated and the candidate hasn't submitted code yet.
+function needsCoding(session) {
+  return !!(session.coding_task && session.coding_task.task) && !(session.code_submission && session.code_submission.code);
+}
+
 // Candidate-facing view - never leaks the rubric or evaluation.
 function publicView(session) {
   const completed = session.status === INTERVIEW_STATUS.COMPLETED;
@@ -194,6 +202,9 @@ function publicView(session) {
           is_follow_up: session.pending_question.is_follow_up,
         }
       : null;
+  let phase = 'asking';
+  if (completed) phase = 'done';
+  else if (!pending && needsCoding(session)) phase = 'coding';
   const view = {
     status: session.status,
     candidate_name: session.candidate_id?.name,
@@ -204,7 +215,12 @@ function publicView(session) {
     current_index: session.asked_count,
     current_question: pending,
     completed,
+    phase,
+    voice: { tts: voiceService.isTtsConfigured(), stt: voiceService.isSttConfigured() },
   };
+  if (phase === 'coding') {
+    view.coding_task = { title: session.coding_task.title, task: session.coding_task.task };
+  }
   if (completed) {
     view.feedback = session.candidate_feedback || null;
     view.answers = qaPairs(session).map((p, i) => ({ index: i + 1, question: p.q, answer: p.a }));
@@ -246,6 +262,38 @@ async function getPublic(token) {
   return publicView(session);
 }
 
+// Called once the adaptive Q&A is exhausted: routes to the coding task if
+// one is pending, otherwise signals the interview is done.
+function finishQa(session) {
+  if (needsCoding(session)) {
+    return {
+      done: false,
+      phase: 'coding',
+      asked_count: session.asked_count,
+      coding_task: { title: session.coding_task.title, task: session.coding_task.task },
+    };
+  }
+  return { done: true, asked_count: session.asked_count };
+}
+
+// Stores the candidate's coding task submission.
+async function submitCode(token, { code, language }) {
+  const session = await loadByToken(token);
+  if (session.status === INTERVIEW_STATUS.COMPLETED) {
+    throw new ApiError(409, 'This interview is already complete');
+  }
+  if (session.status === INTERVIEW_STATUS.EXPIRED) {
+    throw new ApiError(410, 'This interview link has expired');
+  }
+  session.code_submission = {
+    language: language || 'javascript',
+    code: code || '',
+    submitted_at: new Date(),
+  };
+  await session.save();
+  return { done: true };
+}
+
 async function submitAnswer(token, { answer, mode }) {
   const session = await loadByToken(token);
   if (session.status === INTERVIEW_STATUS.COMPLETED) {
@@ -257,7 +305,7 @@ async function submitAnswer(token, { answer, mode }) {
   // Ensure there's a question to answer (handles a stale/empty state).
   if (!session.pending_question || !session.pending_question.question) {
     const finished = await ensurePendingQuestion(session);
-    if (finished) return { done: true, asked_count: session.asked_count };
+    if (finished) return finishQa(session);
   }
 
   const q = session.pending_question;
@@ -276,7 +324,7 @@ async function submitAnswer(token, { answer, mode }) {
   // Generate the next adaptive question (or finish).
   const finished = await ensurePendingQuestion(session);
   if (finished) {
-    return { done: true, asked_count: session.asked_count };
+    return finishQa(session);
   }
   return {
     done: false,
@@ -299,6 +347,21 @@ function qaPairs(session) {
   return pairs;
 }
 
+// Heuristic 0-100 score for the "Code Quality" category, based on whether
+// the candidate submitted a non-trivial coding solution.
+function fallbackCodeQuality(session) {
+  const code = (session.code_submission && session.code_submission.code) || '';
+  if (!code.trim()) {
+    return { category: 'Code Quality', score: 0, note: 'No code was submitted for the coding task.' };
+  }
+  const score = code.trim().length > 40 ? 60 : 30;
+  return {
+    category: 'Code Quality',
+    score,
+    note: 'Heuristic grade (no LLM configured): based on whether a non-trivial submission was made.',
+  };
+}
+
 /**
  * Deterministic fallback evaluation when no LLM is configured: grades on
  * answer substance (length / non-empty) so the flow still completes.
@@ -312,12 +375,20 @@ function fallbackEvaluation(session) {
   const coverage = pairs.length ? answered.length / pairs.length : 0;
   const score = Math.round(Math.min(100, coverage * 60 + Math.min(avgLen / 12, 1) * 40));
   const level = score >= 70 ? 'yes' : score >= 45 ? 'no' : 'strong_no';
+  const note = 'Heuristic grade (no LLM configured): based on answer completeness and length.';
   return {
     criteria: (session.rubric || []).map((r) => ({
       criterion: r.criterion,
       level: answered.length ? level : 'not_assessed',
-      note: 'Heuristic grade (no LLM configured): based on answer completeness and length.',
+      note,
     })),
+    category_scores: [
+      { category: 'Technical Knowledge', score, note },
+      { category: 'Problem Solving', score, note },
+      { category: 'Communication', score: Math.round(Math.min(100, Math.min(avgLen / 12, 1) * 100)), note },
+      fallbackCodeQuality(session),
+      { category: 'Practical Experience', score: Math.round(coverage * 100), note },
+    ],
     summary: `Candidate answered ${answered.length}/${pairs.length} questions. Automatic heuristic evaluation - configure an LLM key for a substantive review.`,
     recommendation: score >= 70 ? 'advance' : score >= 45 ? 'borderline' : 'do_not_advance',
     overall_score: score,
@@ -355,6 +426,9 @@ async function completeAndEvaluate(token) {
       required_skills: job ? (job.required_skills || []).join(', ') : '',
       rubric: (session.rubric || []).map((r) => `- ${r.criterion}: ${r.description || ''}`).join('\n'),
       transcript: pairs.map((p, i) => `Q${i + 1}: ${p.q}\nA${i + 1}: ${p.a || '(no answer)'}`).join('\n\n'),
+      code_task: session.coding_task?.task || '(none)',
+      code_language: session.code_submission?.language || 'none',
+      code_submission: session.code_submission?.code || '(no code submitted)',
     }),
     temperature: spec.temperature,
   }).catch(() => null);
@@ -364,6 +438,11 @@ async function completeAndEvaluate(token) {
       const parsed = parseJSONResponse(llm.content);
       evaluation = {
         criteria: Array.isArray(parsed.criteria) ? parsed.criteria : [],
+        category_scores: Array.isArray(parsed.category_scores)
+          ? parsed.category_scores.filter(
+              (c) => spec.categories.includes(c.category) && typeof c.score === 'number'
+            )
+          : [],
         summary: parsed.summary || '',
         recommendation: spec.recommendations.includes(parsed.recommendation)
           ? parsed.recommendation
@@ -426,6 +505,7 @@ module.exports = {
   createSession,
   getPublic,
   submitAnswer,
+  submitCode,
   completeAndEvaluate,
   getReviewForCandidate,
   interviewLink,

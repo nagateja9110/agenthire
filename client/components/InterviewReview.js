@@ -107,6 +107,33 @@ export function InterviewReview({ candidateId }) {
             </div>
           </div>
 
+          {/* category scorecard */}
+          {ev.category_scores?.length > 0 && (
+            <div>
+              <p className="mb-2 text-xs font-medium text-muted-foreground">Scorecard</p>
+              <div className="space-y-2.5">
+                {ev.category_scores.map((c, i) => (
+                  <div key={i}>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium">{c.category}</span>
+                      <span className="tabular-nums text-muted-foreground">{c.score}/100</span>
+                    </div>
+                    <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className={cn(
+                          'h-full rounded-full',
+                          c.score >= 70 ? 'bg-emerald-500' : c.score >= 45 ? 'bg-amber-500' : 'bg-red-500'
+                        )}
+                        style={{ width: `${Math.max(0, Math.min(100, c.score))}%` }}
+                      />
+                    </div>
+                    {c.note && <p className="mt-1 text-xs text-muted-foreground">{c.note}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* rubric scores */}
           {ev.criteria?.length > 0 && (
             <div>
