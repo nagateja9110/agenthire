@@ -30,5 +30,11 @@ services:
         sync: false
       - key: RESEND_API_KEY
         sync: false
+      - key: MURF_API_KEY
+        sync: false
+      - key: MURF_VOICE_ID
+        value: Anisha
+      - key: ASSEMBLYAI_API_KEY
+        sync: false
       - key: CLIENT_URL
         sync: false
