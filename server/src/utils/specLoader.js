@@ -26,6 +26,8 @@ const specs = {
   resumeParserPrompt: () => loadSpec('prompts/resume-parser.json'),
   matchingAgentPrompt: () => loadSpec('prompts/matching-agent.json'),
   interviewAgentPrompt: () => loadSpec('prompts/interview-agent.json'),
+  interviewEvaluatorPrompt: () => loadSpec('prompts/interview-evaluator.json'),
+  interviewConductorPrompt: () => loadSpec('prompts/interview-conductor.json'),
   emailTemplate: (id) => loadSpec(`email/${id}.json`),
   retryPolicy: () => loadSpec('system/retry-policy.json'),
 };

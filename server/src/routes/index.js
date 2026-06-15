@@ -4,6 +4,7 @@ const jobRoutes = require('./job.routes');
 const candidateRoutes = require('./candidate.routes');
 const workflowRoutes = require('./workflow.routes');
 const analyticsRoutes = require('./analytics.routes');
+const interviewRoutes = require('./interview.routes');
 
 const router = Router();
 
@@ -14,5 +15,6 @@ router.use('/candidates', candidateRoutes);
 router.use('/workflow', workflowRoutes);
 router.use('/workflows', workflowRoutes);
 router.use('/analytics', analyticsRoutes);
+router.use('/interview', interviewRoutes);
 
 module.exports = router;

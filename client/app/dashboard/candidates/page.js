@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { Users } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Users, ChevronRight } from 'lucide-react';
 import { api } from '@/lib/api';
 import { timeAgo, initials, scoreColor, cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
@@ -18,7 +18,7 @@ import {
 import { StatusBadge } from '@/components/status-badge';
 import { PageLoader } from '@/components/ui/spinner';
 
-const STATUSES = ['all', 'applied', 'processing', 'shortlisted', 'hold', 'rejected', 'invited'];
+const STATUSES = ['all', 'applied', 'processing', 'shortlisted', 'hold', 'invited', 'interviewed', 'rejected'];
 
 function ScoreCell({ score }) {
   if (score == null) return <span className="text-muted-foreground">—</span>;
@@ -39,6 +39,7 @@ function ScoreCell({ score }) {
 }
 
 function CandidatesView() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const jobFilter = searchParams.get('job');
   const [candidates, setCandidates] = useState(null);
@@ -108,12 +109,17 @@ function CandidatesView() {
                   <TableHead>Job</TableHead>
                   <TableHead>Match score</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="pr-5 text-right">Applied</TableHead>
+                  <TableHead className="text-right">Applied</TableHead>
+                  <TableHead className="w-8 pr-5" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {candidates.map((c) => (
-                  <TableRow key={c._id}>
+                  <TableRow
+                    key={c._id}
+                    onClick={() => router.push(`/dashboard/candidates/${c._id}`)}
+                    className="group cursor-pointer"
+                  >
                     <TableCell className="pl-5">
                       <div className="flex items-center gap-3">
                         <Avatar className="size-8">
@@ -134,8 +140,11 @@ function CandidatesView() {
                     <TableCell>
                       <StatusBadge status={c.status} />
                     </TableCell>
-                    <TableCell className="pr-5 text-right text-xs text-muted-foreground">
+                    <TableCell className="text-right text-xs text-muted-foreground">
                       {timeAgo(c.created_at)}
+                    </TableCell>
+                    <TableCell className="pr-5">
+                      <ChevronRight className="size-4 text-muted-foreground/40 transition-colors group-hover:text-foreground" />
                     </TableCell>
                   </TableRow>
                 ))}

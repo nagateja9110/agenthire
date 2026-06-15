@@ -43,10 +43,16 @@ async function runMatchingAgent({ parsedResume, job, hiringSpec }) {
     temperature: spec.temperature,
   });
 
+  // Scoring is ALWAYS deterministic; the LLM only rewrites the recommendation
+  // sentence. engine reflects who wrote that sentence.
+  let engine = 'fallback';
   if (llmResponse) {
     try {
       const parsed = parseJSONResponse(llmResponse.content);
-      if (parsed.recommendation) recommendation = parsed.recommendation;
+      if (parsed.recommendation) {
+        recommendation = parsed.recommendation;
+        engine = llmResponse.provider;
+      }
     } catch (err) {
       // Keep the deterministic recommendation; a bad LLM sentence must not fail matching.
     }
@@ -57,6 +63,8 @@ async function runMatchingAgent({ parsedResume, job, hiringSpec }) {
     recommendation,
     rag_context_used: ragContext.length,
     weights: spec.weights,
+    scoring: 'deterministic',
+    engine,
   };
 }
 

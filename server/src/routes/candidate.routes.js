@@ -22,4 +22,8 @@ router.get(
 );
 router.get('/:id', requireAuth, requireRole(ROLES.RECRUITER), asyncHandler(controller.getOne));
 
+// Recruiter reviews a candidate's voice interview (transcript + AI evaluation).
+const { recruiterReview } = require('./interview.routes');
+router.get('/:id/interview', ...recruiterReview);
+
 module.exports = router;

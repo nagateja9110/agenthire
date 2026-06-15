@@ -21,6 +21,8 @@ export const STATUS_STYLES = {
   rejected: 'bg-red-500/10 text-red-600 border-red-500/20 dark:text-red-400',
   invited:
     'bg-violet-500/10 text-violet-600 border-violet-500/20 dark:text-violet-400',
+  interviewed:
+    'bg-indigo-500/10 text-indigo-600 border-indigo-500/20 dark:text-indigo-400',
   // workflow statuses
   pending: 'bg-zinc-500/10 text-zinc-600 border-zinc-500/20 dark:text-zinc-300',
   running: 'bg-blue-500/10 text-blue-600 border-blue-500/20 dark:text-blue-400',
@@ -41,6 +43,7 @@ export const STATUS_DOTS = {
   hold: 'bg-amber-500',
   rejected: 'bg-red-500',
   invited: 'bg-violet-500',
+  interviewed: 'bg-indigo-500',
   pending: 'bg-zinc-400',
   running: 'bg-blue-500',
   waiting_approval: 'bg-amber-500',

@@ -19,7 +19,18 @@ function createApp() {
   app.use(mongoSanitize());
   app.use(globalLimiter);
 
-  app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+  // Resume PDFs: allow the dashboard (different origin/port) to embed and
+  // open them. Relaxes only the framing/CORP headers helmet set globally.
+  app.use(
+    '/uploads',
+    (req, res, next) => {
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      res.removeHeader('X-Frame-Options');
+      res.setHeader('Content-Security-Policy', `frame-ancestors 'self' ${env.CLIENT_URL}`);
+      next();
+    },
+    express.static(path.join(__dirname, '../uploads'))
+  );
   app.use('/', routes);
 
   app.use(notFound);

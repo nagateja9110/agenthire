@@ -14,6 +14,7 @@ const { runMatchingAgent } = require('../agents/matching.agent');
 const { runShortlistingAgent } = require('../agents/shortlisting.agent');
 const { runInterviewAgent } = require('../agents/interview.agent');
 const { runEmailAgent } = require('../agents/email.agent');
+const { createSession } = require('../services/interviewSession.service');
 
 const HiringState = Annotation.Root({
   workflow_id: Annotation,
@@ -229,12 +230,29 @@ const emailNode = makeNode(
   AGENTS.EMAIL_AGENT,
   async (state) => {
     const candidate = await Candidate.findById(state.candidate_id);
+
+    // Approved candidates get a one-time voice-interview link in the invite.
+    // Gated here by the human approval checkpoint - nobody else receives one.
+    let interviewLink = null;
+    if (state.outcome === 'approved' && state.interview && state.interview.questions) {
+      const created = await createSession({
+        candidate,
+        job: { _id: state.job_id, ...state.job },
+        hiringSpec: state.hiring_spec,
+        workflowId: state.workflow_id,
+        questions: state.interview.questions,
+        rubric: state.interview.rubric,
+      });
+      interviewLink = created && created.link;
+    }
+
     const result = await runEmailAgent({
       outcome: state.outcome,
       candidate,
       hiringSpec: state.hiring_spec,
       job: state.job,
       matchScore: state.match_result && state.match_result.match_score,
+      interviewLink,
     });
     if (state.outcome === 'approved') {
       await Candidate.updateOne({ _id: state.candidate_id }, { status: CANDIDATE_STATUS.INVITED });

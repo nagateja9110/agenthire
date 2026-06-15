@@ -1,15 +1,16 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { toast } from 'sonner';
-import { CheckCircle2, XCircle, RotateCcw, Workflow as WorkflowIcon, ChevronDown } from 'lucide-react';
+import { CheckCircle2, XCircle, RotateCcw, Workflow as WorkflowIcon, ChevronDown, UserRound } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn, timeAgo, initials } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { StatusBadge } from '@/components/status-badge';
+import { StatusBadge, EngineBadge } from '@/components/status-badge';
 import { PageLoader, Spinner } from '@/components/ui/spinner';
 import WorkflowCanvas from '@/components/WorkflowCanvas';
 
@@ -166,9 +167,22 @@ export default function WorkflowsPage() {
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <div className="flex items-center gap-2">
-                          <h2 className="font-semibold">{wf.candidate_id?.name}</h2>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Link
+                            href={`/dashboard/candidates/${wf.candidate_id?._id}`}
+                            className="font-semibold underline-offset-4 hover:underline"
+                          >
+                            {wf.candidate_id?.name}
+                          </Link>
                           <StatusBadge status={wf.status} />
+                          {(() => {
+                            const engines = Object.values(wf.state_output || {})
+                              .map((o) => o && o.engine)
+                              .filter(Boolean);
+                            const llm = engines.find((e) => e === 'groq' || e === 'openrouter');
+                            // Show the overall AI mode for this run at a glance.
+                            return <EngineBadge engine={llm || (engines.length ? 'fallback' : null)} />;
+                          })()}
                         </div>
                         <p className="mt-0.5 text-xs text-muted-foreground">
                           {wf.job_id?.title} · match score{' '}
@@ -184,7 +198,12 @@ export default function WorkflowsPage() {
                       </div>
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
+                      <Link href={`/dashboard/candidates/${wf.candidate_id?._id}`}>
+                        <Button variant="outline" size="sm">
+                          <UserRound className="size-4" /> View profile & resume
+                        </Button>
+                      </Link>
                       {wf.status === 'waiting_approval' && (
                         <>
                           <Button
@@ -294,6 +313,7 @@ export default function WorkflowsPage() {
                             <div className="flex flex-wrap items-center gap-2">
                               <code className="font-mono text-xs font-semibold">{log.agent_name}</code>
                               <StatusBadge status={log.status} />
+                              {log.output?.engine && <EngineBadge engine={log.output.engine} />}
                               {log.attempt > 1 && (
                                 <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-700 dark:text-amber-400">
                                   attempt {log.attempt}

@@ -15,6 +15,8 @@ function runShortlistingAgent({ matchScore, shortlistingRules, hiringSpec }) {
   return {
     decision,
     match_score: matchScore,
+    // Shortlisting is a pure rules engine by design - never an LLM.
+    engine: 'rules',
     thresholds: {
       shortlist_min: effectiveShortlistMin,
       hold_min: shortlistingRules.hold_min,

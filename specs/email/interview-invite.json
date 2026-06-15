@@ -2,5 +2,5 @@
   "id": "interview-invite",
   "subject_template": "Interview Invitation - {{role}} at AgentHire",
   "from": "AgentHire <onboarding@resend.dev>",
-  "body_template": "Hi {{candidate_name}},\n\nGreat news! After reviewing your application for the {{role}} position, we'd like to invite you to the interview stage.\n\nYour profile matched {{match_score}}/100 against our requirements, and our team has approved moving forward.\n\nThe process has {{interview_rounds}} round(s). We'll follow up shortly with scheduling options.\n\nBest regards,\nThe AgentHire Recruiting Team"
+  "body_template": "Hi {{candidate_name}},\n\nGreat news! After reviewing your application for the {{role}} position, we'd like to invite you to an AI voice interview.\n\nYour profile matched {{match_score}}/100 against our requirements, and our team has approved moving forward.\n\nStart your interview here (the link is personal to you and works once):\n{{interview_link}}\n\nIt takes about 10 minutes - you'll answer a few questions about your experience by voice (or by typing). Best done in Chrome with your microphone enabled.\n\nBest regards,\nThe AgentHire Recruiting Team"
 }

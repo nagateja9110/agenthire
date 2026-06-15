@@ -20,6 +20,14 @@ const CANDIDATE_STATUS = {
   HOLD: 'hold',
   REJECTED: 'rejected',
   INVITED: 'invited',
+  INTERVIEWED: 'interviewed',
+};
+
+const INTERVIEW_STATUS = {
+  PENDING: 'pending',
+  IN_PROGRESS: 'in_progress',
+  COMPLETED: 'completed',
+  EXPIRED: 'expired',
 };
 
 const SHORTLIST_DECISION = {
@@ -42,4 +50,12 @@ const ROLES = {
   RECRUITER: 'recruiter',
 };
 
-module.exports = { WORKFLOW_STATUS, LOG_STATUS, CANDIDATE_STATUS, SHORTLIST_DECISION, AGENTS, ROLES };
+module.exports = {
+  WORKFLOW_STATUS,
+  LOG_STATUS,
+  CANDIDATE_STATUS,
+  INTERVIEW_STATUS,
+  SHORTLIST_DECISION,
+  AGENTS,
+  ROLES,
+};

@@ -67,7 +67,11 @@ async function runResumeParser({ resumeText, job, candidate }) {
   });
 
   if (!llmResponse) {
-    return { ...deterministicParse(resumeText, spec.known_skills, jobSkills, candidate), parser: 'deterministic' };
+    return {
+      ...deterministicParse(resumeText, spec.known_skills, jobSkills, candidate),
+      parser: 'deterministic',
+      engine: 'fallback',
+    };
   }
 
   const parsed = parseJSONResponse(llmResponse.content);
@@ -80,6 +84,7 @@ async function runResumeParser({ resumeText, job, candidate }) {
     education: parsed.education || null,
     projects: Array.isArray(parsed.projects) ? parsed.projects : [],
     parser: llmResponse.provider,
+    engine: llmResponse.provider,
   };
 }
 

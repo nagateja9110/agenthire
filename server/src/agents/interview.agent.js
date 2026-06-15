@@ -31,7 +31,7 @@ function deterministicInterview({ hiringSpec, job, matchedSkills, spec }) {
     description: `Explains reasoning clearly and decomposes problems methodically. Levels: ${spec.rubric_levels.join(' / ')}.`,
   });
 
-  return { questions, coding_tasks: codingTasks, rubric, generator: 'deterministic' };
+  return { questions, coding_tasks: codingTasks, rubric, generator: 'deterministic', engine: 'fallback' };
 }
 
 async function runInterviewAgent({ hiringSpec, job, matchedSkills, experience }) {
@@ -62,6 +62,7 @@ async function runInterviewAgent({ hiringSpec, job, matchedSkills, experience })
       coding_tasks: parsed.coding_tasks || [],
       rubric: parsed.rubric || [],
       generator: llmResponse.provider,
+      engine: llmResponse.provider,
     };
   } catch (err) {
     return deterministicInterview({ hiringSpec, job, matchedSkills, spec });
