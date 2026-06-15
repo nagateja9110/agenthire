@@ -13,6 +13,7 @@ const router = Router();
 // Public candidate interview routes (token is the auth - no login).
 router.get('/:token', asyncHandler(controller.getSession));
 router.post('/:token/answer', validate(answerSchema), asyncHandler(controller.answer));
+router.post('/:token/run', uploadLimiter, validate(codeSchema), asyncHandler(controller.runCode));
 router.post('/:token/code', validate(codeSchema), asyncHandler(controller.submitCode));
 router.post('/:token/complete', uploadLimiter, asyncHandler(controller.complete));
 router.post('/:token/speak', uploadLimiter, asyncHandler(controller.speak));

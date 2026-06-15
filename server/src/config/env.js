@@ -17,6 +17,8 @@ const env = {
   MURF_API_KEY: process.env.MURF_API_KEY || '',
   MURF_VOICE_ID: process.env.MURF_VOICE_ID || 'Anisha',
   ASSEMBLYAI_API_KEY: process.env.ASSEMBLYAI_API_KEY || '',
+  // Optional self-hosted code runner; defaults to the public Wandbox API.
+  WANDBOX_URL: process.env.WANDBOX_URL || '',
   CLIENT_URL: process.env.CLIENT_URL || 'http://localhost:3000',
 };
 

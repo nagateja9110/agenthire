@@ -6,6 +6,7 @@ const env = require('../config/env');
 const { specs } = require('../utils/specLoader');
 const { invokeLLM, parseJSONResponse, renderTemplate } = require('../agents/llm');
 const voiceService = require('./voice.service');
+const codeRunner = require('./codeRunner.service');
 const { ApiError } = require('../utils/errors');
 const { INTERVIEW_STATUS, CANDIDATE_STATUS } = require('../constants');
 
@@ -47,7 +48,21 @@ async function createSession({ candidate, job, hiringSpec, workflowId, questions
       .filter((q) => q && q.question)
       .map((q) => ({ topic: q.topic || 'General', question: q.question })),
     rubric: rubric || [],
-    coding_task: codingTask ? { title: codingTask.title || null, task: codingTask.task || null } : undefined,
+    coding_task: codingTask
+      ? {
+          id: codingTask.id || null,
+          title: codingTask.title || null,
+          difficulty: codingTask.difficulty || null,
+          description: codingTask.description || null,
+          starter_code: {
+            python: codingTask.starter_code?.python || '',
+            cpp: codingTask.starter_code?.cpp || '',
+            java: codingTask.starter_code?.java || '',
+          },
+          sample_tests: codingTask.sample_tests || [],
+          hidden_tests: codingTask.hidden_tests || [],
+        }
+      : undefined,
     resume_context: {
       skills: Array.isArray(parsed.skills) ? parsed.skills : [],
       experience: typeof parsed.experience === 'number' ? parsed.experience : null,
@@ -188,7 +203,31 @@ async function loadByToken(token) {
 
 // A coding task was generated and the candidate hasn't submitted code yet.
 function needsCoding(session) {
-  return !!(session.coding_task && session.coding_task.task) && !(session.code_submission && session.code_submission.code);
+  return (
+    !!(session.coding_task && session.coding_task.description) &&
+    !(session.code_submission && session.code_submission.code)
+  );
+}
+
+// Candidate-safe view of the coding task - never includes hidden_tests.
+function codingTaskPublic(session) {
+  const t = session.coding_task;
+  return {
+    id: t.id,
+    title: t.title,
+    difficulty: t.difficulty,
+    description: t.description,
+    starter_code: {
+      python: t.starter_code?.python || '',
+      cpp: t.starter_code?.cpp || '',
+      java: t.starter_code?.java || '',
+    },
+    sample_tests: (t.sample_tests || []).map((s) => ({
+      input: s.input,
+      expected_output: s.expected_output,
+      explanation: s.explanation,
+    })),
+  };
 }
 
 // Candidate-facing view - never leaks the rubric or evaluation.
@@ -219,7 +258,7 @@ function publicView(session) {
     voice: { tts: voiceService.isTtsConfigured(), stt: voiceService.isSttConfigured() },
   };
   if (phase === 'coding') {
-    view.coding_task = { title: session.coding_task.title, task: session.coding_task.task };
+    view.coding_task = codingTaskPublic(session);
   }
   if (completed) {
     view.feedback = session.candidate_feedback || null;
@@ -270,13 +309,41 @@ function finishQa(session) {
       done: false,
       phase: 'coding',
       asked_count: session.asked_count,
-      coding_task: { title: session.coding_task.title, task: session.coding_task.task },
+      coding_task: codingTaskPublic(session),
     };
   }
   return { done: true, asked_count: session.asked_count };
 }
 
-// Stores the candidate's coding task submission.
+const SUPPORTED_LANGS = ['python', 'cpp', 'java'];
+
+function normalizeLang(language) {
+  return SUPPORTED_LANGS.includes(language) ? language : 'python';
+}
+
+// Runs the candidate's code against the VISIBLE sample tests only ("Run"
+// button). Returns per-test results so they can see actual vs expected.
+async function runCode(token, { code, language }) {
+  const session = await loadByToken(token);
+  if (!session.coding_task || !session.coding_task.description) {
+    throw new ApiError(409, 'No coding task is active for this interview');
+  }
+  const tests = session.coding_task.sample_tests || [];
+  const results = await codeRunner.runTests({
+    language: normalizeLang(language),
+    code: code || '',
+    tests,
+    reveal: true,
+  });
+  return {
+    results,
+    passed: results.filter((r) => r.passed).length,
+    total: results.length,
+  };
+}
+
+// Submits the final solution: grades against ALL tests (sample + hidden),
+// records the pass count, then ends the interview.
 async function submitCode(token, { code, language }) {
   const session = await loadByToken(token);
   if (session.status === INTERVIEW_STATUS.COMPLETED) {
@@ -285,13 +352,32 @@ async function submitCode(token, { code, language }) {
   if (session.status === INTERVIEW_STATUS.EXPIRED) {
     throw new ApiError(410, 'This interview link has expired');
   }
+
+  const lang = normalizeLang(language);
+  const allTests = [
+    ...(session.coding_task?.sample_tests || []),
+    ...(session.coding_task?.hidden_tests || []),
+  ];
+  let passed = null;
+  const total = allTests.length;
+  if (total && (code || '').trim()) {
+    try {
+      const results = await codeRunner.runTests({ language: lang, code, tests: allTests, reveal: false });
+      passed = results.filter((r) => r.passed).length;
+    } catch {
+      passed = null; // execution service unavailable - store code without a score
+    }
+  }
+
   session.code_submission = {
-    language: language || 'javascript',
+    language: lang,
     code: code || '',
+    passed,
+    total: total || null,
     submitted_at: new Date(),
   };
   await session.save();
-  return { done: true };
+  return { done: true, passed, total: total || null };
 }
 
 async function submitAnswer(token, { answer, mode }) {
@@ -347,18 +433,27 @@ function qaPairs(session) {
   return pairs;
 }
 
-// Heuristic 0-100 score for the "Code Quality" category, based on whether
-// the candidate submitted a non-trivial coding solution.
+// Heuristic 0-100 score for the "Code Quality" category, primarily driven by
+// how many coding-task tests the submission passed.
 function fallbackCodeQuality(session) {
-  const code = (session.code_submission && session.code_submission.code) || '';
+  const sub = session.code_submission || {};
+  const code = sub.code || '';
   if (!code.trim()) {
     return { category: 'Code Quality', score: 0, note: 'No code was submitted for the coding task.' };
+  }
+  if (typeof sub.passed === 'number' && typeof sub.total === 'number' && sub.total > 0) {
+    const score = Math.round((sub.passed / sub.total) * 100);
+    return {
+      category: 'Code Quality',
+      score,
+      note: `Passed ${sub.passed}/${sub.total} coding-task test cases.`,
+    };
   }
   const score = code.trim().length > 40 ? 60 : 30;
   return {
     category: 'Code Quality',
     score,
-    note: 'Heuristic grade (no LLM configured): based on whether a non-trivial submission was made.',
+    note: 'Submission recorded but not auto-graded (execution unavailable).',
   };
 }
 
@@ -426,9 +521,13 @@ async function completeAndEvaluate(token) {
       required_skills: job ? (job.required_skills || []).join(', ') : '',
       rubric: (session.rubric || []).map((r) => `- ${r.criterion}: ${r.description || ''}`).join('\n'),
       transcript: pairs.map((p, i) => `Q${i + 1}: ${p.q}\nA${i + 1}: ${p.a || '(no answer)'}`).join('\n\n'),
-      code_task: session.coding_task?.task || '(none)',
+      code_task: session.coding_task?.description || '(none)',
       code_language: session.code_submission?.language || 'none',
-      code_submission: session.code_submission?.code || '(no code submitted)',
+      code_submission: session.code_submission?.code
+        ? `${session.code_submission.code}\n\n[Auto-graded: passed ${session.code_submission.passed ?? '?'}/${
+            session.code_submission.total ?? '?'
+          } test cases]`
+        : '(no code submitted)',
     }),
     temperature: spec.temperature,
   }).catch(() => null);
@@ -505,6 +604,7 @@ module.exports = {
   createSession,
   getPublic,
   submitAnswer,
+  runCode,
   submitCode,
   completeAndEvaluate,
   getReviewForCandidate,

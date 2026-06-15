@@ -1,5 +1,6 @@
 const { specs } = require('../utils/specLoader');
 const { invokeLLM, parseJSONResponse, renderTemplate } = require('./llm');
+const { pickProblem } = require('../data/codingProblems');
 
 function deterministicInterview({ hiringSpec, job, matchedSkills, spec }) {
   const skills = matchedSkills.length ? matchedSkills : job.required_skills || [];
@@ -14,14 +15,6 @@ function deterministicInterview({ hiringSpec, job, matchedSkills, spec }) {
     });
   }
 
-  const primary = skills[0] || 'JavaScript';
-  const codingTasks = [
-    {
-      title: `${primary} feature build`,
-      task: `Build a small ${hiringSpec.role || job.title} feature using ${primary}: fetch a paginated list from a REST API, render it with loading and error states, and add client-side filtering. Time box: 45 minutes.`,
-    },
-  ].slice(0, spec.coding_task_count);
-
   const rubric = (job.required_skills || []).map((skill) => ({
     criterion: skill,
     description: `Demonstrates working depth in ${skill}: explains concepts accurately and applies them in the coding task. Levels: ${spec.rubric_levels.join(' / ')}.`,
@@ -31,7 +24,9 @@ function deterministicInterview({ hiringSpec, job, matchedSkills, spec }) {
     description: `Explains reasoning clearly and decomposes problems methodically. Levels: ${spec.rubric_levels.join(' / ')}.`,
   });
 
-  return { questions, coding_tasks: codingTasks, rubric, generator: 'deterministic', engine: 'fallback' };
+  // Coding task always comes from the curated pool (verified test cases), not
+  // the LLM, so a correct solution is never failed by a bad test.
+  return { questions, coding_tasks: [pickProblem()], rubric, generator: 'deterministic', engine: 'fallback' };
 }
 
 async function runInterviewAgent({ hiringSpec, job, matchedSkills, experience }) {
@@ -59,7 +54,8 @@ async function runInterviewAgent({ hiringSpec, job, matchedSkills, experience })
     if (!Array.isArray(parsed.questions) || !parsed.questions.length) throw new Error('no questions');
     return {
       questions: parsed.questions,
-      coding_tasks: parsed.coding_tasks || [],
+      // Coding task always from the curated pool, not the LLM (verified tests).
+      coding_tasks: [pickProblem()],
       rubric: parsed.rubric || [],
       generator: llmResponse.provider,
       engine: llmResponse.provider,

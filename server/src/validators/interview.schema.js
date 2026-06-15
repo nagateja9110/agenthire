@@ -7,7 +7,7 @@ const answerSchema = z.object({
 
 const codeSchema = z.object({
   code: z.string().max(20000).default(''),
-  language: z.string().max(30).default('javascript'),
+  language: z.enum(['python', 'cpp', 'java']).default('python'),
 });
 
 module.exports = { answerSchema, codeSchema };

@@ -14,6 +14,10 @@ import {
   Bot,
   ThumbsUp,
   Lightbulb,
+  Play,
+  Code2,
+  CheckCircle,
+  XCircle,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -32,8 +36,13 @@ export default function InterviewPage() {
   const [answer, setAnswer] = useState('');
   const [submitError, setSubmitError] = useState('');
   const [transcribing, setTranscribing] = useState(false);
-  const [code, setCode] = useState('');
-  const [codeLanguage, setCodeLanguage] = useState('javascript');
+  const [codeLanguage, setCodeLanguage] = useState('python');
+  const [codeByLang, setCodeByLang] = useState({ python: '', cpp: '', java: '' });
+  const [codeInit, setCodeInit] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [runResults, setRunResults] = useState(null);
+  const code = codeByLang[codeLanguage] || '';
+  const setCode = (value) => setCodeByLang((prev) => ({ ...prev, [codeLanguage]: value }));
 
   const tts = useInterviewerVoice(token, session?.voice?.tts);
   const stt = useSpeechRecognition();
@@ -73,6 +82,19 @@ export default function InterviewPage() {
   useEffect(() => {
     if (stt.transcript) setAnswer(stt.transcript);
   }, [stt.transcript]);
+
+  // Seed the editor with each language's boilerplate once the coding task loads.
+  useEffect(() => {
+    const starter = session?.coding_task?.starter_code;
+    if (starter && !codeInit) {
+      setCodeByLang({
+        python: starter.python || '',
+        cpp: starter.cpp || '',
+        java: starter.java || '',
+      });
+      setCodeInit(true);
+    }
+  }, [session, codeInit]);
 
   const [lastInputWasVoice, setLastInputWasVoice] = useState(false);
   const micSupported = useRecorder || stt.supported;
@@ -174,6 +196,22 @@ export default function InterviewPage() {
       setSubmitError(err.message);
       setPhase('asking');
     }
+  }
+
+  async function runCodeTask() {
+    setRunning(true);
+    setSubmitError('');
+    setRunResults(null);
+    try {
+      const res = await api(`/interview/${token}/run`, {
+        method: 'POST',
+        body: { code, language: codeLanguage },
+      });
+      setRunResults(res);
+    } catch (err) {
+      setSubmitError(err.message);
+    }
+    setRunning(false);
   }
 
   async function submitCodeTask() {
@@ -309,6 +347,132 @@ export default function InterviewPage() {
     );
   }
 
+  // ---- coding round (wide layout: problem on the left, editor on the right) ----
+  if (phase === 'coding' || (phase === 'completing' && session.coding_task)) {
+    const task = session.coding_task || {};
+    const completing = phase === 'completing';
+    return (
+      <Shell>
+        <div className="w-full max-w-6xl space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Code2 className="size-5 text-violet-500" />
+              <h1 className="text-lg font-semibold">Coding challenge</h1>
+              {task.difficulty && (
+                <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[11px] font-medium text-violet-600 dark:text-violet-400">
+                  {task.difficulty}
+                </span>
+              )}
+            </div>
+            <span className="text-xs text-muted-foreground">{session.job_title}</span>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* problem statement + sample tests */}
+            <Card className="overflow-hidden">
+              <CardContent className="max-h-[72vh] space-y-4 overflow-auto py-5">
+                <h2 className="text-base font-semibold">{task.title}</h2>
+                <pre className="font-sans text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
+                  {task.description}
+                </pre>
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground">Sample test cases</p>
+                  {(task.sample_tests || []).map((s, i) => (
+                    <div key={i} className="rounded-lg border p-3 text-xs">
+                      <p className="font-medium">Example {i + 1}</p>
+                      <p className="mt-1.5 text-muted-foreground">Input</p>
+                      <pre className="mt-0.5 rounded bg-muted/50 p-2 whitespace-pre-wrap">{s.input}</pre>
+                      <p className="mt-1.5 text-muted-foreground">Expected output</p>
+                      <pre className="mt-0.5 rounded bg-muted/50 p-2 whitespace-pre-wrap">{s.expected_output}</pre>
+                      {s.explanation && <p className="mt-1.5 text-muted-foreground">{s.explanation}</p>}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* editor + run/submit controls */}
+            <div className="flex flex-col gap-3">
+              <div className="h-[60vh]">
+                <CodeEditorPanel
+                  language={codeLanguage}
+                  onLanguageChange={setCodeLanguage}
+                  code={code}
+                  onCodeChange={setCode}
+                  height="100%"
+                />
+              </div>
+
+              {runResults && (
+                <Card>
+                  <CardContent className="max-h-48 space-y-2 overflow-auto py-3">
+                    <p className="text-xs font-medium">
+                      Sample results: {runResults.passed}/{runResults.total} passed
+                    </p>
+                    {runResults.results.map((r, i) => (
+                      <div key={i} className="rounded-md border p-2 text-xs">
+                        <div className="flex items-center gap-1.5">
+                          {r.passed ? (
+                            <CheckCircle className="size-3.5 text-emerald-500" />
+                          ) : (
+                            <XCircle className="size-3.5 text-red-500" />
+                          )}
+                          <span className="font-medium">Test {i + 1}</span>
+                        </div>
+                        {!r.passed && (
+                          <div className="mt-1 space-y-0.5 text-muted-foreground">
+                            {r.error ? (
+                              <pre className="whitespace-pre-wrap text-red-500">{r.error}</pre>
+                            ) : (
+                              <>
+                                <p>Expected: <code className="text-foreground">{r.expected}</code></p>
+                                <p>Got: <code className="text-foreground">{r.actual || '(no output)'}</code></p>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              {submitError && <p className="text-sm text-destructive">{submitError}</p>}
+
+              <div className="flex items-center justify-between gap-3">
+                <Button variant="outline" onClick={runCodeTask} disabled={running || completing}>
+                  {running ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" /> Running...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="size-4" /> Run samples
+                    </>
+                  )}
+                </Button>
+                <Button onClick={submitCodeTask} disabled={running || completing}>
+                  {completing ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" /> Evaluating...
+                    </>
+                  ) : (
+                    <>
+                      Submit solution <Send className="size-4" />
+                    </>
+                  )}
+                </Button>
+              </div>
+              <p className="text-center text-[11px] text-muted-foreground">
+                Your solution is run against hidden test cases on submit · Python, C++, and Java supported.
+              </p>
+            </div>
+          </div>
+        </div>
+      </Shell>
+    );
+  }
+
   const target = session.target_questions || 5;
   const idx = session.asked_count || 0;
   // Adaptive interview: cap visible progress below 100% until truly done.
@@ -366,45 +530,6 @@ export default function InterviewPage() {
               <Button size="lg" className="mt-6" onClick={beginInterview}>
                 Start interview <Send className="size-4" />
               </Button>
-            </CardContent>
-          </Card>
-        ) : phase === 'coding' || (phase === 'completing' && session.coding_task) ? (
-          <Card className="animate-fade-up">
-            <CardContent className="space-y-4 py-6">
-              <div className="flex items-start gap-3">
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-violet-600 text-white">
-                  <Bot className="size-4.5" />
-                </div>
-                <div className="flex-1">
-                  <span className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-                    {session.coding_task?.title || 'Coding task'}
-                  </span>
-                  <p className="mt-1 text-sm leading-snug text-balance">{session.coding_task?.task}</p>
-                </div>
-              </div>
-
-              <CodeEditorPanel
-                language={codeLanguage}
-                onLanguageChange={setCodeLanguage}
-                code={code}
-                onCodeChange={setCode}
-              />
-
-              {submitError && <p className="text-sm text-destructive">{submitError}</p>}
-
-              <div className="flex items-center justify-end">
-                <Button onClick={submitCodeTask} disabled={phase === 'completing'}>
-                  {phase === 'completing' ? (
-                    <>
-                      <Loader2 className="size-4 animate-spin" /> Evaluating...
-                    </>
-                  ) : (
-                    <>
-                      Submit code <Send className="size-4" />
-                    </>
-                  )}
-                </Button>
-              </div>
             </CardContent>
           </Card>
         ) : (
