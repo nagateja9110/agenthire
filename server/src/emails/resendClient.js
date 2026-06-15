@@ -1,10 +1,7 @@
-const fs = require('fs');
-const path = require('path');
 const env = require('../config/env');
 const { RetryableError } = require('../utils/errors');
 
 let resend = null;
-let logoDataUri = null;
 
 function isConfigured() {
   return Boolean(env.RESEND_API_KEY);
@@ -29,13 +26,4 @@ async function sendEmail({ from, to, subject, text, html }) {
   return { delivered: true, fallback: false, id: data && data.id };
 }
 
-function getLogoDataUri() {
-  if (!logoDataUri) {
-    const logoPath = path.resolve(__dirname, 'assets/logo.png');
-    const logoBuffer = fs.readFileSync(logoPath);
-    logoDataUri = `data:image/png;base64,${logoBuffer.toString('base64')}`;
-  }
-  return logoDataUri;
-}
-
-module.exports = { sendEmail, isConfigured, getLogoDataUri };
+module.exports = { sendEmail, isConfigured };

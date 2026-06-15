@@ -1,6 +1,7 @@
 const { specs } = require('../utils/specLoader');
 const { renderTemplate } = require('./llm');
-const { sendEmail, getLogoDataUri } = require('../emails/resendClient');
+const { sendEmail } = require('../emails/resendClient');
+const env = require('../config/env');
 
 /**
  * Renders the spec-defined email template and delivers through Resend.
@@ -21,7 +22,7 @@ async function runEmailAgent({ outcome, candidate, hiringSpec, job, matchScore, 
 
   const subject = renderTemplate(template.subject_template, vars);
   const body = renderTemplate(template.body_template, vars);
-  const logo = getLogoDataUri();
+  const logo = `${env.CLIENT_URL}/logo.png`;
   const html = `
     <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827; background: #f8fafc; padding: 24px;">
       <div style="max-width: 640px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 16px; overflow: hidden;">
