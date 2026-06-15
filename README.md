@@ -98,10 +98,12 @@ runs, with logs, retry counts, and timing for every step.
 | Backend | Node 20+, Express, MongoDB/Mongoose, JWT auth |
 | AI | LangGraph, LangChain, Groq (primary) → OpenRouter (fallback), local embeddings (`bge-small-en-v1.5`), Qdrant |
 | Email | Resend (falls back to logged output without an API key) |
+| Interview voice | Murf TTS + AssemblyAI STT (fall back to the browser's Web Speech API) |
+| Coding round | Monaco editor, scored as part of a 5-category interview scorecard |
 | Tests | Jest + Supertest (33 tests, incl. full workflow E2E), Playwright |
 
 **No API keys required to run the demo** — every agent has a deterministic fallback if
-Groq/OpenRouter/Resend keys aren't set.
+Groq/OpenRouter/Resend/Murf/AssemblyAI keys aren't set.
 
 ## Running it locally
 
@@ -130,6 +132,8 @@ incognito window → submit `scripts/john-react-resume.pdf` → watch it run on
 | `GROQ_API_KEY` | LLM-powered resume parsing, recommendations, interview generation |
 | `OPENROUTER_API_KEY` | Automatic fallback when Groq fails |
 | `RESEND_API_KEY` | Real email delivery (otherwise rendered output is logged) |
+| `MURF_API_KEY` | AI interviewer speaks questions aloud via Murf TTS (otherwise the browser's speech synthesis is used) |
+| `ASSEMBLYAI_API_KEY` | Voice answers are transcribed via AssemblyAI (otherwise the browser's speech recognition is used) |
 
 ## Project structure
 

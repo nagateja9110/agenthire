@@ -21,18 +21,24 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { useTextToSpeech, useSpeechRecognition } from '@/hooks/useSpeech';
+import { CodeEditorPanel } from '@/components/CodeEditorPanel';
+import { useInterviewerVoice, useSpeechRecognition, useVoiceRecorder } from '@/hooks/useSpeech';
 
 export default function InterviewPage() {
   const { token } = useParams();
   const [session, setSession] = useState(null);
   const [loadError, setLoadError] = useState('');
-  const [phase, setPhase] = useState('loading'); // loading | intro | asking | submitting | completing | done
+  const [phase, setPhase] = useState('loading'); // loading | intro | asking | submitting | coding | completing | done
   const [answer, setAnswer] = useState('');
   const [submitError, setSubmitError] = useState('');
+  const [transcribing, setTranscribing] = useState(false);
+  const [code, setCode] = useState('');
+  const [codeLanguage, setCodeLanguage] = useState('javascript');
 
-  const tts = useTextToSpeech();
+  const tts = useInterviewerVoice(token, session?.voice?.tts);
   const stt = useSpeechRecognition();
+  const recorder = useVoiceRecorder();
+  const useRecorder = !!session?.voice?.stt && recorder.supported;
   const askedRef = useRef(-1);
 
   const loadSession = useCallback(async () => {
@@ -41,6 +47,7 @@ export default function InterviewPage() {
       setSession(data);
       if (data.completed || data.status === 'completed') setPhase('done');
       else if (data.status === 'expired') setLoadError('This interview link has expired.');
+      else if (data.phase === 'coding') setPhase('coding');
       else setPhase('intro');
     } catch (err) {
       setLoadError(err.message);
@@ -67,12 +74,43 @@ export default function InterviewPage() {
     if (stt.transcript) setAnswer(stt.transcript);
   }, [stt.transcript]);
 
+  const [lastInputWasVoice, setLastInputWasVoice] = useState(false);
+  const micSupported = useRecorder || stt.supported;
+  const listening = useRecorder ? recorder.recording : stt.listening;
+
   function beginInterview() {
     setPhase('asking');
   }
 
-  function toggleMic() {
+  async function toggleMic() {
     setSubmitError('');
+    if (useRecorder) {
+      if (recorder.recording) {
+        tts.stop();
+        const blob = await recorder.stop();
+        if (blob && blob.size > 0) {
+          setTranscribing(true);
+          try {
+            const fd = new FormData();
+            fd.append('audio', blob, 'answer.webm');
+            const result = await api(`/interview/${token}/transcribe`, { method: 'POST', formData: fd });
+            if (result.text) {
+              setAnswer(result.text);
+              setLastInputWasVoice(true);
+            }
+          } catch {
+            /* keep whatever was typed */
+          }
+          setTranscribing(false);
+        }
+      } else {
+        tts.stop();
+        setAnswer('');
+        setLastInputWasVoice(false);
+        await recorder.start();
+      }
+      return;
+    }
     if (stt.listening) {
       stt.stop();
     } else {
@@ -95,10 +133,20 @@ export default function InterviewPage() {
     try {
       const res = await api(`/interview/${token}/answer`, {
         method: 'POST',
-        body: { answer: answer.trim(), mode: stt.listening || answer === stt.transcript ? 'voice' : 'text' },
+        body: {
+          answer: answer.trim(),
+          mode: useRecorder
+            ? lastInputWasVoice
+              ? 'voice'
+              : 'text'
+            : stt.listening || answer === stt.transcript
+            ? 'voice'
+            : 'text',
+        },
       });
       stt.reset();
       setAnswer('');
+      setLastInputWasVoice(false);
       if (res.done) {
         setPhase('completing');
         await api(`/interview/${token}/complete`, { method: 'POST' });
@@ -110,6 +158,9 @@ export default function InterviewPage() {
           /* keep whatever we have */
         }
         setPhase('done');
+      } else if (res.phase === 'coding') {
+        setSession((s) => ({ ...s, asked_count: res.asked_count, coding_task: res.coding_task }));
+        setPhase('coding');
       } else {
         setSession((s) => ({
           ...s,
@@ -122,6 +173,25 @@ export default function InterviewPage() {
     } catch (err) {
       setSubmitError(err.message);
       setPhase('asking');
+    }
+  }
+
+  async function submitCodeTask() {
+    setPhase('completing');
+    setSubmitError('');
+    try {
+      await api(`/interview/${token}/code`, { method: 'POST', body: { code, language: codeLanguage } });
+      await api(`/interview/${token}/complete`, { method: 'POST' });
+      try {
+        const finished = await api(`/interview/${token}`);
+        setSession(finished);
+      } catch {
+        /* keep whatever we have */
+      }
+      setPhase('done');
+    } catch (err) {
+      setSubmitError(err.message);
+      setPhase('coding');
     }
   }
 
@@ -251,14 +321,24 @@ export default function InterviewPage() {
         <div>
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>
-              Question {idx + 1} <span className="text-muted-foreground/60">· ~{target} total</span>
+              {phase === 'coding' || (phase === 'completing' && session.coding_task) ? (
+                'Coding challenge'
+              ) : (
+                <>
+                  Question {idx + 1} <span className="text-muted-foreground/60">· ~{target} total</span>
+                </>
+              )}
             </span>
             <span>{session.job_title}</span>
           </div>
           <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
             <div
               className="h-full rounded-full bg-gradient-to-r from-blue-500 to-violet-500 transition-all duration-500"
-              style={{ width: `${phase === 'intro' ? 0 : progress}%` }}
+              style={{
+                width: `${
+                  phase === 'intro' ? 0 : phase === 'coding' || (phase === 'completing' && session.coding_task) ? 96 : progress
+                }%`,
+              }}
             />
           </div>
         </div>
@@ -277,7 +357,7 @@ export default function InterviewPage() {
                 I&apos;ll ask around {target} questions based on your resume, and may follow up on
                 your answers. Answer out loud with your microphone, or type — whichever you prefer.
               </p>
-              {!stt.supported && (
+              {!micSupported && (
                 <p className="mx-auto mt-3 max-w-sm rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
                   Voice input isn&apos;t supported in this browser — you can type your answers, or
                   switch to Chrome/Edge for the full voice experience.
@@ -286,6 +366,45 @@ export default function InterviewPage() {
               <Button size="lg" className="mt-6" onClick={beginInterview}>
                 Start interview <Send className="size-4" />
               </Button>
+            </CardContent>
+          </Card>
+        ) : phase === 'coding' || (phase === 'completing' && session.coding_task) ? (
+          <Card className="animate-fade-up">
+            <CardContent className="space-y-4 py-6">
+              <div className="flex items-start gap-3">
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-violet-600 text-white">
+                  <Bot className="size-4.5" />
+                </div>
+                <div className="flex-1">
+                  <span className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                    {session.coding_task?.title || 'Coding task'}
+                  </span>
+                  <p className="mt-1 text-sm leading-snug text-balance">{session.coding_task?.task}</p>
+                </div>
+              </div>
+
+              <CodeEditorPanel
+                language={codeLanguage}
+                onLanguageChange={setCodeLanguage}
+                code={code}
+                onCodeChange={setCode}
+              />
+
+              {submitError && <p className="text-sm text-destructive">{submitError}</p>}
+
+              <div className="flex items-center justify-end">
+                <Button onClick={submitCodeTask} disabled={phase === 'completing'}>
+                  {phase === 'completing' ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" /> Evaluating...
+                    </>
+                  ) : (
+                    <>
+                      Submit code <Send className="size-4" />
+                    </>
+                  )}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ) : (
@@ -326,32 +445,38 @@ export default function InterviewPage() {
                   value={answer}
                   onChange={(e) => setAnswer(e.target.value)}
                   placeholder={
-                    stt.supported
+                    micSupported
                       ? 'Tap the mic and speak, or type your answer here...'
                       : 'Type your answer here...'
                   }
                   rows={5}
                   className="resize-none border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
                 />
-                {stt.listening && (
+                {listening && (
                   <div className="mt-1 flex items-center gap-1.5 text-xs text-red-500">
                     <span className="size-2 animate-pulse-dot rounded-full bg-red-500" /> Listening...
                   </div>
                 )}
+                {transcribing && (
+                  <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Loader2 className="size-3 animate-spin" /> Transcribing...
+                  </div>
+                )}
                 {stt.error && <p className="mt-1 text-xs text-amber-600">{stt.error}</p>}
+                {recorder.error && <p className="mt-1 text-xs text-amber-600">{recorder.error}</p>}
               </div>
 
               {submitError && <p className="text-sm text-destructive">{submitError}</p>}
 
               {/* controls */}
               <div className="flex items-center justify-between gap-3">
-                {stt.supported ? (
+                {micSupported ? (
                   <Button
-                    variant={stt.listening ? 'destructive' : 'outline'}
+                    variant={listening ? 'destructive' : 'outline'}
                     onClick={toggleMic}
-                    disabled={phase === 'submitting' || phase === 'completing'}
+                    disabled={phase === 'submitting' || phase === 'completing' || transcribing}
                   >
-                    {stt.listening ? (
+                    {listening ? (
                       <>
                         <Square className="size-4" /> Stop
                       </>
@@ -369,7 +494,7 @@ export default function InterviewPage() {
 
                 <Button
                   onClick={submitAnswer}
-                  disabled={phase === 'submitting' || phase === 'completing' || !answer.trim()}
+                  disabled={phase === 'submitting' || phase === 'completing' || !answer.trim() || transcribing}
                 >
                   {phase === 'submitting' || phase === 'completing' ? (
                     <>

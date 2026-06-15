@@ -28,4 +28,16 @@ const upload = multer({
   },
 });
 
-module.exports = { upload, UPLOADS_DIR };
+// In-memory upload for interview voice answers (sent straight to AssemblyAI).
+const audioUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+  fileFilter: (req, file, cb) => {
+    if (!/^audio\//.test(file.mimetype)) {
+      return cb(new ApiError(400, 'Only audio uploads are accepted'));
+    }
+    return cb(null, true);
+  },
+});
+
+module.exports = { upload, audioUpload, UPLOADS_DIR };

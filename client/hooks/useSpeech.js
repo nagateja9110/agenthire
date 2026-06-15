@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { API_URL } from '@/lib/api';
 
 // True only where the Web Speech recognition API exists (Chrome/Edge).
 export function speechRecognitionSupported() {
@@ -36,6 +37,129 @@ export function useTextToSpeech() {
   useEffect(() => () => supported && window.speechSynthesis.cancel(), [supported]);
 
   return { speak, stop, speaking, supported };
+}
+
+/**
+ * Real interviewer voice via server-proxied Murf TTS, falling back to the
+ * browser's speechSynthesis when `ttsEnabled` is false or the request fails.
+ */
+export function useInterviewerVoice(token, ttsEnabled) {
+  const browserTts = useTextToSpeech();
+  const [speaking, setSpeaking] = useState(false);
+  const audioRef = useRef(null);
+
+  const speak = useCallback(
+    async (text) => {
+      if (!text) return;
+      if (!ttsEnabled) {
+        browserTts.speak(text);
+        return;
+      }
+      try {
+        const res = await fetch(`${API_URL}/interview/${token}/speak`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text }),
+        });
+        const contentType = res.headers.get('content-type') || '';
+        if (res.ok && contentType.includes('audio')) {
+          if (audioRef.current) audioRef.current.pause();
+          const url = URL.createObjectURL(await res.blob());
+          const audio = new Audio(url);
+          audioRef.current = audio;
+          audio.onplay = () => setSpeaking(true);
+          audio.onended = () => {
+            setSpeaking(false);
+            URL.revokeObjectURL(url);
+          };
+          audio.onerror = () => {
+            setSpeaking(false);
+            browserTts.speak(text);
+          };
+          await audio.play();
+          return;
+        }
+      } catch {
+        /* fall through to browser TTS */
+      }
+      browserTts.speak(text);
+    },
+    [ttsEnabled, token, browserTts]
+  );
+
+  const stop = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setSpeaking(false);
+    browserTts.stop();
+  }, [browserTts]);
+
+  useEffect(() => () => audioRef.current?.pause(), []);
+
+  return { speak, stop, speaking: speaking || browserTts.speaking, supported: true };
+}
+
+/**
+ * Records a candidate's spoken answer as an audio blob (for server-side
+ * AssemblyAI transcription) using the MediaRecorder API.
+ */
+export function useVoiceRecorder() {
+  const supported =
+    typeof window !== 'undefined' && !!(navigator.mediaDevices && window.MediaRecorder);
+  const [recording, setRecording] = useState(false);
+  const [error, setError] = useState('');
+  const mediaRef = useRef(null);
+  const chunksRef = useRef([]);
+  const streamRef = useRef(null);
+
+  const start = useCallback(async () => {
+    if (!supported) return;
+    setError('');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      chunksRef.current = [];
+      const mr = new MediaRecorder(stream);
+      mr.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      mediaRef.current = mr;
+      mr.start();
+      setRecording(true);
+    } catch {
+      setError('Microphone permission was blocked. Allow mic access or type your answer.');
+    }
+  }, [supported]);
+
+  const stop = useCallback(() => {
+    return new Promise((resolve) => {
+      const mr = mediaRef.current;
+      if (!mr) {
+        resolve(null);
+        return;
+      }
+      mr.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: mr.mimeType || 'audio/webm' });
+        streamRef.current?.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+        mediaRef.current = null;
+        setRecording(false);
+        resolve(blob);
+      };
+      mr.stop();
+    });
+  }, []);
+
+  useEffect(
+    () => () => {
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+    },
+    []
+  );
+
+  return { supported, recording, error, start, stop };
 }
 
 /**

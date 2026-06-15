@@ -14,6 +14,9 @@ const env = {
   QDRANT_URL: process.env.QDRANT_URL || 'http://localhost:6333',
   QDRANT_API_KEY: process.env.QDRANT_API_KEY || '',
   RESEND_API_KEY: process.env.RESEND_API_KEY || '',
+  MURF_API_KEY: process.env.MURF_API_KEY || '',
+  MURF_VOICE_ID: process.env.MURF_VOICE_ID || 'Anisha',
+  ASSEMBLYAI_API_KEY: process.env.ASSEMBLYAI_API_KEY || '',
   CLIENT_URL: process.env.CLIENT_URL || 'http://localhost:3000',
 };
 
