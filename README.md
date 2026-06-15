@@ -32,25 +32,24 @@ back to the exact rules it was evaluated against.
 
 ## How it works
 
-```
-Resume upload (public, PDF)
-   ↓
-resume_parser      → extracts name, skills, experience from the PDF
-   ↓
-embedding_agent    → turns the resume into vectors (Qdrant) for similarity search
-   ↓
-matching_agent     → scores the candidate against the job's required skills
-   ↓
-shortlisting_agent → shortlisted / hold / rejected, based on /specs thresholds
-   ↓                              ↘ rejected ─────────────┐
-human_approval     → PAUSES here until the recruiter approves
-   ↓ approved                     ↘ rejected ─────────────┤
-interview_agent    → generates interview questions + a coding task
-   ↓                                                      ↓
-email_agent        → sends interview invite ───────── or rejection email
-   ↓
-completed
-```
+A candidate uploads a resume on the public job page, and that one upload kicks off a
+7-step LangGraph pipeline:
+
+1. **Resume upload** (public, PDF) — starts the workflow.
+2. **resume_parser** — extracts name, skills, and experience from the PDF.
+3. **embedding_agent** — turns the resume into vectors (Qdrant) for similarity search.
+4. **matching_agent** — scores the candidate against the job's required skills.
+5. **shortlisting_agent** — marks the candidate `shortlisted`, `hold`, or `rejected`
+   based on the thresholds in `/specs`. Rejected candidates skip straight to step 7.
+6. **human_approval** — pauses the workflow here until a recruiter approves or rejects.
+   On approval, continues to step 6b; on rejection, skips to step 7.
+   - **6b. interview_agent** — generates interview questions and a coding task.
+7. **email_agent** — sends an interview invite (if approved) or a rejection email
+   (if rejected at step 5 or 6).
+8. **Completed.**
+
+See the [Architecture](#architecture) diagram above for the full picture, including the
+human-approval checkpoint and reject shortcut.
 
 Recruiters watch this happen live on a React Flow canvas — each agent lights up as it
 runs, with logs, retry counts, and timing for every step.
