@@ -4,18 +4,28 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Plus, Copy, ExternalLink, Briefcase, Clock, Sparkles, Users, ArrowRight } from 'lucide-react';
+import { Plus, Copy, ExternalLink, Briefcase, Clock, Sparkles, Users, ArrowRight, Trash2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { timeAgo } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PageLoader } from '@/components/ui/spinner';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 export default function JobsPage() {
   const router = useRouter();
   const [jobs, setJobs] = useState(null);
   const [error, setError] = useState('');
+  const [jobToDelete, setJobToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     api('/jobs?mine=true&limit=100')
@@ -28,6 +38,20 @@ export default function JobsPage() {
     toast.success('Public job link copied', {
       description: 'Candidates land on the job page, then click Apply now.',
     });
+  }
+
+  async function confirmDelete() {
+    setDeleting(true);
+    try {
+      await api(`/jobs/${jobToDelete._id}`, { method: 'DELETE' });
+      setJobs((prev) => prev.filter((j) => j._id !== jobToDelete._id));
+      toast.success('Job deleted');
+      setJobToDelete(null);
+    } catch (err) {
+      toast.error('Failed to delete job', { description: err.message });
+    } finally {
+      setDeleting(false);
+    }
   }
 
   if (!jobs && !error) return <PageLoader label="Loading jobs..." />;
@@ -93,15 +117,29 @@ export default function JobsPage() {
                         <span>created {timeAgo(job.created_at)}</span>
                       </p>
                     </div>
-                    <Link
-                      href={`/jobs/${job._id}`}
-                      target="_blank"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Button variant="ghost" size="icon" className="size-8" title="Open public job page">
-                        <ExternalLink className="size-4" />
+                    <div className="flex items-center gap-1">
+                      <Link
+                        href={`/jobs/${job._id}`}
+                        target="_blank"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Button variant="ghost" size="icon" className="size-8" title="Open public job page">
+                          <ExternalLink className="size-4" />
+                        </Button>
+                      </Link>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 text-muted-foreground hover:text-destructive"
+                        title="Delete job"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setJobToDelete(job);
+                        }}
+                      >
+                        <Trash2 className="size-4" />
                       </Button>
-                    </Link>
+                    </div>
                   </div>
 
                   <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{job.description}</p>
@@ -150,6 +188,31 @@ export default function JobsPage() {
           })}
         </div>
       )}
+
+      <Dialog open={!!jobToDelete} onOpenChange={(open) => !open && setJobToDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete this job?</DialogTitle>
+            <DialogDescription>
+              {jobToDelete && (
+                <>
+                  This permanently deletes <span className="font-medium">{jobToDelete.title}</span>,
+                  its public apply link, and all candidates and workflow runs for this job. This
+                  can&apos;t be undone.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setJobToDelete(null)} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete} disabled={deleting}>
+              {deleting ? 'Deleting...' : 'Delete job'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

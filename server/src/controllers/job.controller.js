@@ -24,4 +24,9 @@ async function update(req, res) {
   return ok(res, { job });
 }
 
-module.exports = { create, list, getOne, update };
+async function remove(req, res) {
+  await jobService.deleteJob(req.params.id, req.user._id);
+  return ok(res, { deleted: true });
+}
+
+module.exports = { create, list, getOne, update, remove };

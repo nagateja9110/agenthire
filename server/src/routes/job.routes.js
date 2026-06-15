@@ -24,5 +24,6 @@ router.put(
   validate(updateJobSchema),
   asyncHandler(controller.update)
 );
+router.delete('/:id', requireAuth, requireRole(ROLES.RECRUITER), asyncHandler(controller.remove));
 
 module.exports = router;

@@ -1,5 +1,7 @@
 const Job = require('../models/Job');
 const Candidate = require('../models/Candidate');
+const Workflow = require('../models/Workflow');
+const InterviewSession = require('../models/InterviewSession');
 const { ApiError } = require('../utils/errors');
 
 async function createJob(data, userId) {
@@ -59,4 +61,18 @@ async function updateJob(id, data, userId) {
   return job;
 }
 
-module.exports = { createJob, listJobs, getJob, updateJob };
+async function deleteJob(id, userId) {
+  const job = await Job.findById(id);
+  if (!job) throw new ApiError(404, 'Job not found');
+  if (job.created_by.toString() !== userId.toString()) {
+    throw new ApiError(403, 'You can only delete your own jobs');
+  }
+  await Promise.all([
+    Candidate.deleteMany({ job_id: job._id }),
+    Workflow.deleteMany({ job_id: job._id }),
+    InterviewSession.deleteMany({ job_id: job._id }),
+  ]);
+  await job.deleteOne();
+}
+
+module.exports = { createJob, listJobs, getJob, updateJob, deleteJob };
