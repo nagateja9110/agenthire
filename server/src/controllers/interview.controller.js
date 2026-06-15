@@ -14,6 +14,14 @@ async function answer(req, res) {
   return ok(res, result);
 }
 
+async function runCode(req, res) {
+  const result = await interviewService.runCode(req.params.token, {
+    code: req.body.code,
+    language: req.body.language,
+  });
+  return ok(res, result);
+}
+
 async function submitCode(req, res) {
   const result = await interviewService.submitCode(req.params.token, {
     code: req.body.code,
@@ -58,4 +66,4 @@ async function transcribe(req, res) {
   }
 }
 
-module.exports = { getSession, answer, submitCode, complete, review, speak, transcribe };
+module.exports = { getSession, answer, runCode, submitCode, complete, review, speak, transcribe };
