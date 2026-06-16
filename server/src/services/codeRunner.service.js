@@ -21,6 +21,8 @@ const COMPILER = {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+const EXEC_TIMEOUT_MS = 10000; // abort a single Wandbox call after 10s
+
 // Transient sandbox/infra failures (vs. genuine user code errors) worth a retry.
 function isInfraError(text) {
   return /OCI runtime|Resource temporarily|temporarily unavailable|clone:/i.test(text || '');
@@ -28,18 +30,28 @@ function isInfraError(text) {
 
 async function executeOnce({ language, code, stdin }) {
   const compiler = COMPILER[language] || COMPILER.python;
-  const res = await fetch(`${WANDBOX_URL}/api/compile.json`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ compiler, code: code || '', stdin: stdin || '' }),
-  });
-  if (!res.ok) throw new Error('Code execution failed');
-  const data = await res.json();
-  return {
-    stdout: data.program_output || '',
-    stderr: data.program_error || '',
-    compileError: data.compiler_error || '',
-  };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), EXEC_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${WANDBOX_URL}/api/compile.json`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ compiler, code: code || '', stdin: stdin || '' }),
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error('Code execution failed');
+    const data = await res.json();
+    return {
+      stdout: data.program_output || '',
+      stderr: data.program_error || '',
+      compileError: data.compiler_error || '',
+    };
+  } catch (err) {
+    if (err.name === 'AbortError') throw new Error('INFRA_TIMEOUT');
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // Executes a program, retrying a couple of times on transient sandbox errors
@@ -48,8 +60,15 @@ async function runCode({ language, code, stdin }) {
   let last;
   for (let attempt = 0; attempt < 3; attempt += 1) {
     if (attempt > 0) await sleep(600 * attempt);
-    last = await executeOnce({ language, code, stdin });
-    if (!isInfraError(last.stderr) && !isInfraError(last.compileError)) return last;
+    try {
+      last = await executeOnce({ language, code, stdin });
+      if (!isInfraError(last.stderr) && !isInfraError(last.compileError)) return last;
+    } catch (err) {
+      // Don't retry timeouts — if Wandbox didn't respond in 10s it's down.
+      // Retry only transient OCI sandbox errors (usually resolve in one retry).
+      if (err.message !== 'INFRA_TIMEOUT' && attempt < 2) continue;
+      throw err;
+    }
   }
   return last;
 }
@@ -70,19 +89,25 @@ function normalize(s) {
  */
 async function runTests({ language, code, tests, reveal = true }) {
   const results = [];
+  let serviceDown = false;
   for (let i = 0; i < tests.length; i += 1) {
     const t = tests[i];
     if (i > 0) await sleep(250); // space out compiles to ease load on the sandbox
     let passed = false;
     let actual = '';
     let error = '';
-    try {
-      const out = await runCode({ language, code, stdin: t.input });
-      actual = out.stdout;
-      error = out.compileError || out.stderr || '';
-      passed = !out.compileError && normalize(actual) === normalize(t.expected_output);
-    } catch {
+    if (serviceDown) {
       error = 'Execution service unavailable';
+    } else {
+      try {
+        const out = await runCode({ language, code, stdin: t.input });
+        actual = out.stdout;
+        error = out.compileError || out.stderr || '';
+        passed = !out.compileError && normalize(actual) === normalize(t.expected_output);
+      } catch {
+        error = 'Execution service unavailable';
+        serviceDown = true; // skip remaining tests; service is down
+      }
     }
     const entry = { passed };
     if (reveal) {
