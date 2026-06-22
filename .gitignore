@@ -16,3 +16,4 @@ server/logs/*
 playwright-report/
 test-results/
 .cache/
+api-key.txt

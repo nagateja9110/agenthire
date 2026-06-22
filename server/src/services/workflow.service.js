@@ -23,10 +23,19 @@ function buildSpecSnapshot(job) {
   }
   const workflowSpec = specs.workflow(job.workflow_spec_id || 'default-hiring-workflow');
 
+  if (typeof job.minimum_score === 'number') {
+    hiringSpec = { ...hiringSpec, minimum_score: job.minimum_score };
+  }
+
+  let shortlistingRules = specs.shortlistingRules();
+  if (typeof job.hold_min === 'number') {
+    shortlistingRules = { ...shortlistingRules, hold_min: job.hold_min };
+  }
+
   return {
     hiring_spec: hiringSpec,
     workflow: workflowSpec.workflow,
-    shortlisting_rules: specs.shortlistingRules(),
+    shortlisting_rules: shortlistingRules,
     matching_weights: specs.matchingAgentPrompt().weights,
     retry_policy: specs.retryPolicy(),
     rag: specs.ragRetrieval(),
