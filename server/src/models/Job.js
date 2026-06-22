@@ -7,6 +7,8 @@ const jobSchema = new mongoose.Schema(
     required_skills: { type: [String], required: true },
     preferred_skills: { type: [String], default: [] },
     min_experience: { type: Number, default: 0 },
+    minimum_score: { type: Number, min: 0, max: 100, default: null },
+    hold_min: { type: Number, min: 0, max: 100, default: null },
     workflow_spec_id: { type: String, default: 'default-hiring-workflow' },
     hiring_spec_id: { type: String, default: 'frontend-developer' },
     created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },

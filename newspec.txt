@@ -1,0 +1,493 @@
+
+Search for ‘Arrays’
+Home
+Code Playground
+Naga Teja
+Profile Picture
+CONTENTS
+AI-Powered Mock Interview Platform > Building an AI-Powered Mock Interview Platform | Reading Material
+Building an AI-Powered Mock Interview Platform
+The Problem
+Have you ever frozen during a technical interview — even though you knew the answer?
+You studied for weeks. You can solve Coding problems at home. You can explain React hooks to your friends. But the moment an interviewer says "Tell me about yourself," your mind goes blank. 
+
+The Action Gap
+Knowing answers ≠ Performing in interviews
+
+Watching Virat Kohli bat on TV won't make you hit a six. You need to face the ball yourself. Reading about system design won't prepare you for explaining it live to a senior engineer. The gap between knowledge and performance is real — and it only closes with practice under realistic conditions.
+
+Traditional Solutions and Their Limitations
+Approach	Limitation
+Practice with friends	May not ask industry-relevant questions
+Watch YouTube	You're not actually speaking
+Read Q&A lists	Memorizing ≠ Explaining under pressure
+Paid mock interviews	Expensive and limited availability
+The core issue is clear: you need a way to practice speaking your answers out loud, get real-time feedback, and do it as many times as you want — without scheduling constraints or high costs.
+
+The Solution: AI Powered Mock Interview Platform
+An AI interviewer available 24/7 that:
+- Asks relevant, role-specific questions
+- Listens to your verbal answers
+- Evaluates your code submissions
+- Gives instant, detailed feedback
+
+Instead of waiting days for a friend's availability or paying hundreds for a coaching session, you open your browser and start practicing immediately. The AI adapts questions to your resume, remembers context from earlier answers, and scores you across multiple dimensions.
+
+Real World AI Interview Platforms
+Pramp — https://pramp.com
+InterviewBuddy — https://interviewbuddy.in
+Google Interview Warmup — https://grow.google/certificates/interview-warmup
+What We Will Build
+AI Mock Interview Platform
+In this session, we'll build a full-stack AI-powered mock interview platform that simulates realistic technical interviews. The platform generates personalized questions from your resume, conducts voice-based interviews with an AI interviewer named Natalie, supports live coding challenges, and delivers detailed performance feedback.
+
+Key Features
+Feature	Description
+Resume-Based Questions	AI analyzes your resume and generates personalized interview questions
+Voice Interviews	Listen to questions via AI voice (Murf TTS), record verbal answers
+Live Coding	Built-in Monaco code editor for coding questions
+AI Scoring	Detailed feedback with scores across 5 categories
+Interview History	Track all past interviews with scores and feedback
+Multi-Role Support	Frontend, Backend, Full Stack, Data Analyst, DevOps, and more
+Prerequisites
+VS Code
+Node.js
+MongoDB Atlas account
+API Keys: Google Gemini, Murf AI, AssemblyAI
+Project Structure
+project/├── server/    # Backend application code└── client/    # Frontend application code
+Functionalities to Implement
+Resume Upload & Interview Setup: Upload PDF resume, configure interview settings, and start an AI-powered interview
+Conducting the AI Interview: Voice-based Q&A with AI interviewer, live coding challenges, and contextual follow-ups
+Feedback & Interview History: AI generates detailed performance reports; users view past interviews and scores
+Installing Dependencies
+The initial code includes the complete authentication system, all styling, frontend component shells, navigation, constants, and the server/client configuration. We will focus on implementing the AI-powered interview logic.
+
+12
+cd servernpm install
+12
+cd clientnpm install
+Implementing Resume Upload & Interview Setup Functionality
+Steps to Implement
+Setting Up Gemini AI and Prompt Templates
+Building Resume Model, Upload Service, and Controller
+Building Interview Model and Start Interview Service
+Building Resume Upload and Interview Setup Frontend
+Step 1: Setting Up Gemini AI and Prompt Templates
+Every AI feature in our platform — generating questions, follow-ups, and feedback — goes through Google's Gemini API. Before building any feature, we need to set up this AI foundation.
+
+Create a .env file in the server/ directory with the following variables. The first two are needed by the authentication system that's already in the initial code:
+
+MONGODB_URI=your_mongodb_connection_stringJWT_SECRET=your_jwt_secret_keyGEMINI_API_KEY=your_gemini_api_key
+Backend Code (server/src/config/gemini.config.js)
+1234567891011121314151617181920212223
+import { GoogleGenAI } from "@google/genai";const ai = new GoogleGenAI({  apiKey: process.env.GEMINI_API_KEY,});const MODEL_NAME = "gemini-2.5-flash";const generateContent = async (prompt) => {  try {    const response = await ai.models.generateContent({      model: MODEL_NAME,      contents: prompt,    });    return response.text;  } catch (error) {    console.error("Gemini API Error:", error.message);    throw new Error(`Gemini API failed: ${error.message}`);  }};export { generateContent };
+Collapse
+This file initializes the @google/genai client with our API key and exports a generateContent function. We centralize the model name here so every service goes through one place.
+
+With the Gemini client configured, we create a service layer that other parts of the application can call. Instead of importing the config directly everywhere, askGemini provides a single entry point with user-friendly error messages.
+
+Backend Code (server/src/services/gemini.service.js)
+78910111213141516
+    if (!response) {      throw new Error('Gemini returned an empty response');    }    return response;  } catch (error) {    console.error('Gemini Service Error:', error.message);    throw new Error('The AI service is currently unavailable. Please try again later.');  }};  
+Expand
+The service wraps generateContent with user-friendly error handling. Other services call askGemini instead of touching the config directly.
+
+Gemini returns text that often includes markdown code fences around JSON. Before we can use AI responses as structured data, we need a utility to clean and parse them.
+
+Backend Code (server/src/utils/prompts.utils.js)
+1234567891011
+export const parseGeminiJSON = (text) => {  try {    let cleanText = text.trim();    if (cleanText.startsWith('```')) {      cleanText = cleanText.replace(/^```(?:json)?\s*\n?/, '');      cleanText = cleanText.replace(/\n?```\s*$/, '');    }    return JSON.parse(cleanText.trim());  } catch (error) {  
+Expand
+Gemini frequently wraps JSON output in markdown fences. This utility strips those wrappers before calling JSON.parse.
+
+Now that we can communicate with Gemini and parse its responses, we define the actual prompt templates — the instructions that tell the AI what kind of output to generate. Each prompt is a function that accepts dynamic data (role, resume text, conversation history) and returns a formatted instruction.
+
+Backend Code (server/src/constants/prompts.js)
+727374757677787980818283
+- Be warm, professional, and encouraging — like a real human interviewerReturn ONLY the greeting text, no JSON, no markdown.`;export const FOLLOW_UP_PROMPT = (role, conversationHistory, nextQuestion) => `You are Natalie, a friendly and conversational interviewer conducting a ${role} interview.CONVERSATION SO FAR:${conversationHistory}  
+Expand
+Each function returns a prompt string using template literals. GENERATE_QUESTIONS_PROMPT produces a mix of behavioral, technical, and coding questions from the resume. FOLLOW_UP_PROMPT feeds the full conversation history so the AI acknowledges what the candidate actually said. buildConversationHistory limits context to the last 20 messages to stay within token limits.
+
+Step 2: Building Resume Model, Upload Service, and Controller
+Before an interview can begin, we need the candidate's resume. We need a way to upload a PDF, extract its text, and store it so Gemini can generate personalized questions from it.
+
+Backend Code (server/src/models/Resume.model.js)
+16171819202122232425
+      required: true,    },  },  {    timestamps: true,  });const Resume = mongoose.model('Resume', resumeSchema);export default Resume; 
+Expand
+We store the userId (indexed for fast lookups), the original fileName, and the extractedText which Gemini reads. The timestamps option auto-adds createdAt and updatedAt fields.
+
+The model defines what a resume looks like in the database. Now we need the business logic — parsing the uploaded PDF to extract text, saving the result, and retrieving it later.
+
+Backend Code (server/src/services/resume.service.js)
+151617181920212223242526
+    let extractedText = '';    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {      const page = await pdf.getPage(pageNum);      const content = await page.getTextContent();      const strings = content.items.map((item) => item.str);      extractedText += strings.join(' ');    }    if (!extractedText || extractedText.trim().length === 0) {      throw new Error('No text could be extracted from the PDF'); 
+Expand
+parseResumePDF converts the multer buffer to a Uint8Array, loads it with pdfjs-dist, and extracts text from every page. saveResume uses findOneAndUpdate with upsert: true so each user has exactly one resume record that gets overwritten on re-upload.
+
+The service handles the logic, but it doesn't deal with HTTP requests. The controller receives the request from Express, calls the service, and sends back a formatted response.
+
+Backend Code (server/src/controllers/resume.controller.js)
+1234567891011
+import * as resumeService from '../services/resume.service.js';export const uploadResume = async (req, res, next) => {  try {    if (!req.file) {      return res.status(400).json({ success: false, message: 'No file uploaded. Please select a PDF.' });    }    const extractedText = await resumeService.parseResumePDF(req.file.buffer);    const resume = await resumeService.saveResume(  
+Expand
+The controller validates the request, delegates to the service, and formats the response. The preview field (first 500 chars) lets the frontend show a snippet without sending the full text.
+
+We wire the controller to URL endpoints. Routes define which HTTP method + URL maps to which controller function, and which middleware runs first (authentication, file upload).
+
+Backend Code (server/src/routes/resume.routes.js)
+45678910111213
+import { uploadResume as multerUpload } from '../middleware/upload.middleware.js';const router = Router();router.use(authenticate);router.post('/upload', multerUpload, uploadResume);router.get('/', getResume);export default router; 
+Expand
+POST /upload chains the multer middleware before the controller, and GET / retrieves the saved resume. Both require authentication.
+
+Step 3: Building Interview Model and Start Interview Service
+With resume upload in place, we can now build the interview itself. When a user clicks "Start Interview," we need to generate personalized questions from their resume and create a greeting for the AI interviewer.
+
+Backend Code (server/src/models/Interview.model.js)
+1234567891011
+import mongoose from 'mongoose';const interviewSchema = new mongoose.Schema(  {    userId: {      type: mongoose.Schema.Types.ObjectId,      ref: 'User',      required: true,      index: true,    },    role: { 
+Expand
+This schema stores everything about a session: AI-generated questions, the full messages conversation history, codeSubmissions with evaluations, and the feedback object. mongoose.Schema.Types.Mixed for feedback allows storing the flexible JSON structure Gemini returns.
+
+The model defines the interview document structure. Now we build the logic that starts an interview — sending the resume to Gemini for personalized questions, creating a greeting from the AI interviewer, and converting it to speech.
+
+Backend Code (server/src/services/interview.service.js)
+1234567891011
+import Interview from '../models/Interview.model.js';import { askGemini } from './gemini.service.js';import { generateAudio } from './murf.service.js';import { parseGeminiJSON } from '../utils/prompts.utils.js';import {  GENERATE_QUESTIONS_PROMPT,  INTERVIEW_GREETING_PROMPT,  FOLLOW_UP_PROMPT,  FEEDBACK_PROMPT,  EVALUATE_CODE_PROMPT,  buildConversationHistory,  
+Expand
+startInterview generates questions from the resume, then creates a personalized greeting. The introQuestion is hardcoded as "Tell me about yourself" — mirroring real interviews. Audio generation is wrapped in a try-catch so the interview still works even if Murf AI is temporarily unavailable.
+
+We create the HTTP handler that validates the request, calls the service, and returns the result to the frontend.
+
+Backend Code (server/src/controllers/interview.controller.js)
+1234567891011
+import * as interviewService from '../services/interview.service.js';export const startInterview = async (req, res, next) => {  try {    const { role, resumeText, totalQuestions } = req.body;    if (!role) {      return res.status(400).json({ success: false, message: 'Please select a role for the interview.' });    }    if (!resumeText) {      return res.status(400).json({ success: false, message: 'Please upload your resume first.' });  
+Expand
+The controller validates that role and resumeText are present, delegates to the service, and returns status 201 (Created) since we're creating a new interview resource.
+
+We expose the start interview endpoint as a POST route. All interview routes require authentication.
+
+Backend Code (server/src/routes/interview.routes.js)
+12345678910
+import { Router } from 'express';import { startInterview } from '../controllers/interview.controller.js';import authenticate from '../middleware/auth.middleware.js';const router = Router();router.use(authenticate);router.post('/start', startInterview);export default router;
+We start with just the /start route. More routes will be added in later steps.
+
+Connecting Resume and Interview Routes to the Server
+We've created resume and interview route files, but Express doesn't know about them yet. Let's register them in the central route index so the URLs become accessible.
+
+Backend Code (server/src/routes/index.js) — Updated with Resume and Interview Routes
+3456789101112
+import resumeRoutes from './resume.routes.js';import interviewRoutes from './interview.routes.js';const router = Router();router.use('/auth', authRoutes);router.use('/resume', resumeRoutes);router.use('/interview', interviewRoutes);export default router; 
+Expand
+This mounts resume routes at /api/resume and interview routes at /api/interview. Combined with app.use('/api', routes) in app.js, the final URLs are /api/resume/upload, /api/interview/start, etc.
+
+Step 4: Building Resume Upload and Interview Setup Frontend
+Now we connect the backend to the user interface. The backend can handle resume uploads and interview creation — we need the frontend to communicate with these endpoints. We create a service module that wraps each API call, so components can call simple functions like uploadResume(file) without dealing with URLs or Axios details.
+
+Frontend Code (client/src/services/interviewService.js)
+1234567891011
+import API from './api.js';const uploadResume = async (file) => {  const formData = new FormData();  formData.append('resume', file);  const response = await API.post('/resume/upload', formData, {    headers: { 'Content-Type': 'multipart/form-data' },  });  return response.data.data;};  
+Expand
+uploadResume uses FormData so multer on the backend can parse the file. Each function returns response.data.data — unwrapping Axios's response envelope and our API's { success, data } structure.
+
+Frontend Logic (client/src/pages/HomePage/index.jsx)
+The HomePage is the first screen users see after logging in. For now, it shows a welcome message and a "Start Interview" button. The component JSX is already in the initial code. We'll add dashboard stats and recent interviews in the final step.
+
+The styling for HomePage is already implemented in the initial code's HomePage/index.css.
+
+Frontend Logic (client/src/pages/InterviewSetupPage/index.jsx)
+The InterviewSetupPage guides users through a 3-step wizard: choosing a role, selecting difficulty, and uploading their resume. The shell and styling are already in the initial code — we add the logic for loading saved resumes, handling file uploads, validating each step, and starting the interview.
+
+1234567891011
+useEffect(() => {  const loadResume = async () => {    try {      const data = await getResume();      if (data) {        setResumeText(data.text);        setResumeFileName(data.fileName);      }    } catch (error) {      // No resume found - that's okay    } 
+Expand
+A 3-step wizard: (1) Role selection, (2) Difficulty selection mapping to question counts, (3) Resume upload. On mount, it calls getResume() to pre-fill if already uploaded. The audio from startInterview is passed via location.state to the InterviewPage.
+
+The styling for InterviewSetupPage is already implemented in the initial code's InterviewSetupPage/index.css.
+
+Frontend Code (client/src/App.jsx) — Updated with Home and Setup Routes
+With the HomePage and InterviewSetupPage built, we need to add their routes to the App component. Update App.jsx to import the new pages and add protected routes for them.
+
+JSX
+1234567891011
+import { Routes, Route, Navigate } from 'react-router-dom';import LoginPage from './pages/LoginPage';import Navbar from './components/Navbar';import ProtectedRoute from './components/ProtectedRoute';import HomePage from './pages/HomePage';import InterviewSetupPage from './pages/InterviewSetupPage';function App() {  return (    <div className="app-shell">      <Routes> 
+Expand
+We wrap each page in ProtectedRoute so only logged-in users can access them. The Navbar provides navigation across the app. More routes will be added as we build the remaining pages.
+
+Resume Upload & Interview Setup — Done!
+What We've Built So Far
+Gemini AI client and prompt templates for generating questions, follow-ups, and feedback
+Resume model, PDF parsing service, and upload controller with routes
+Interview model and start interview service with question generation
+Frontend interview service for API communication
+InterviewSetupPage with a 3-step wizard (role, difficulty, resume upload)
+Initial HomePage with welcome message and start button
+Updated route registry and App.jsx routing
+What's Next
+We can now upload resumes and generate personalized interview questions. But how does the candidate actually answer them?  we'll add voice recording with speech-to-text, AI voice with text-to-speech, live coding challenges, and the full interview conversation flow.
+
+Implementing AI Interview Functionality
+Steps to Implement
+Building Voice-to-Text with AssemblyAI
+Building Text-to-Speech with Murf AI
+Building Answer Submission and Code Evaluation
+Building Interview Page with Voice and Code Components
+Step 5: Building Voice-to-Text with AssemblyAI
+When a candidate records a voice answer, we need to convert that audio to text so the AI can process it. AssemblyAI handles this speech-to-text conversion.
+
+Add ASSEMBLYAI_API_KEY=your_assemblyai_api_key to your .env file.
+
+Backend Code (server/src/services/assemblyai.service.js)
+1234567891011
+import { AssemblyAI } from 'assemblyai';import fs from 'fs';import path from 'path';import os from 'os';const client = new AssemblyAI({  apiKey: process.env.ASSEMBLYAI_API_KEY,});export const transcribeAudio = async (audioBuffer, originalName) => {  const extension = path.extname(originalName) || '.webm';  
+Expand
+AssemblyAI's SDK expects a file path, so we save the buffer to a temporary file using os.tmpdir(). The finally block guarantees cleanup even on error, preventing temp file accumulation.
+
+Step 6: Building Text-to-Speech with Murf AI
+The AI interviewer Natalie needs a voice. Murf AI converts the interviewer's text responses into natural-sounding speech.
+
+Add MURF_API_KEY=your_murf_api_key to your .env file.
+
+Backend Code (server/src/services/murf.service.js)
+1234567891011
+const MURF_BASE_URL = 'https://global.api.murf.ai/v1/speech/stream';const MURF_VOICE_ID = 'en-US-natalie';const MURF_LOCALE = 'en-US';export const streamAudio = async (text, res) => {  try {    const payload = {      text: text,      voiceId: MURF_VOICE_ID,      model: 'FALCON',      multiNativeLocale: MURF_LOCALE, 
+Expand
+streamAudio pipes chunks directly to the Express response for real-time playback, while generateAudio collects the full response and returns base64. The [pause 1s] prefix prevents the first word from being clipped. The error handling in streamAudio checks res.headersSent to avoid crashes mid-stream.
+
+Step 7: Building Answer Submission and Code Evaluation
+With voice and audio services ready, we can now build the core interview loop — submitting answers, evaluating code, generating follow-up questions, and ending the interview. We extend the interview service we created earlier with submitAnswer, submitCode, endInterview, and getInterviewById. The startInterview function stays the same.
+
+Backend Code (server/src/services/interview.service.js) — Complete Version
+216217218219220221222223224225226227
+export const endInterview = async (interviewId, userId) => {  const interview = await Interview.findOne({ _id: interviewId, userId });  if (!interview) {    const error = new Error('Interview not found');    error.statusCode = 404;    throw error;  }  if (interview.status === 'completed' && interview.feedback) {    return {      interviewId: interview._id,  
+Expand
+submitAnswer stores the candidate's answer, generates a contextual follow-up using conversation history, and produces audio for the next question. submitCode follows the same pattern but also evaluates the code. Both handle the "last question" edge case by marking the interview complete. endInterview is idempotent — if feedback already exists, it returns the cached version.
+
+The service now handles the full interview lifecycle. We add HTTP handlers for text answers, voice answers (with transcription), code submissions, ending the interview, and text-to-speech streaming.
+
+Backend Code (server/src/controllers/interview.controller.js) — Complete Version
+1234567891011
+import * as interviewService from '../services/interview.service.js';import { transcribeAudio } from '../services/assemblyai.service.js';import { streamAudio } from '../services/murf.service.js';export const startInterview = async (req, res, next) => {  try {    const { role, resumeText, totalQuestions } = req.body;    if (!role) {      return res.status(400).json({ success: false, message: 'Please select a role for the interview.' });    }  
+Expand
+The controller handles seven endpoints. submitVoiceAnswer first transcribes audio via AssemblyAI, then submits the text as an answer. transcribeOnly is for the preview-before-submit flow. speakText streams audio directly through the Express response.
+
+We expand the routes to cover all interview endpoints. Route ordering matters — /transcribe must come before /:id/answer so Express doesn't treat "transcribe" as an interview ID.
+
+Backend Code (server/src/routes/interview.routes.js) — Complete Version
+1234567891011
+import { Router } from 'express';import {  startInterview,  submitTextAnswer,  submitVoiceAnswer,  submitCode,  endInterview,  getInterview,  transcribeOnly,  speakText,} from '../controllers/interview.controller.js'; 
+Expand
+/transcribe must be defined before /:id/answer because Express matches routes top-down — "transcribe" would otherwise be interpreted as an interview ID.
+
+Step 8: Building Interview Page with Voice and Code Components
+Now we add the logic to the InterviewPage. The UI shell is already in the initial code — we need to implement the state machine that manages speaking, listening, and thinking states, plus the handlers for voice recording, code submission, and answer processing.
+
+The backend supports answering, code submission, transcription, and ending interviews. We update the frontend service to call these new endpoints.
+
+Frontend Code (client/src/services/interviewService.js) — Complete Version
+1234567891011
+import API from './api.js';const uploadResume = async (file) => {  const formData = new FormData();  formData.append('resume', file);  const response = await API.post('/resume/upload', formData, {    headers: { 'Content-Type': 'multipart/form-data' },  });  return response.data.data;};  
+Expand
+The complete service adds submitTextAnswer, transcribeAudio, submitCode, endInterview, and getInterview. The transcribeAudio function sends the audio blob as FormData with filename answer.webm — matching the backend's multer middleware.
+
+The AI interviewer speaks through audio. We need a headless component that converts base64-encoded audio to a playable Blob, auto-plays it, and signals when playback ends — transitioning the page from "speaking" to "listening" state. The initial code includes a stub for this component — replace it with the full implementation.
+
+Frontend Code (client/src/components/AudioPlayer/index.jsx)
+1234567891011
+import { useState, useEffect } from 'react';function AudioPlayer({ audioBase64, autoPlay, onEnded }) {  const [audioInstance, setAudioInstance] = useState(null);  useEffect(() => {    if (!audioBase64) return;    if (audioInstance) {      audioInstance.pause();      audioInstance.src = ''; 
+Expand
+AudioPlayer is a headless component (return null) that converts base64 to a Blob, creates an Object URL, and plays it. The cleanup function revokes the URL to prevent memory leaks. The onEnded callback transitions the InterviewPage from "speaking" to "listening" state.
+
+Frontend Logic (client/src/components/VoiceRecorder/index.jsx)
+Candidates need to record verbal answers. The VoiceRecorder uses the browser's MediaRecorder API with three states: idle (ready to record), recording (capturing audio chunks), and preview (play back before submitting). The shell and styling are already in the initial code — we add the recording logic.
+
+1234567891011
+useEffect(() => {  let timerId = null;  if (isRecording) {    timerId = setInterval(() => {      setRecordingTime((prev) => {        if (prev + 1 >= MAX_RECORD_TIME) {          stopRecording();          toast.success('Maximum recording time reached (5 minutes).');          return MAX_RECORD_TIME;        } 
+Expand
+VoiceRecorder manages three states: idle, recording, and preview. It uses the MediaRecorder API with WebM/Opus codec, collects chunks via ondataavailable, and assembles them into a Blob on stop. The 5-minute cap prevents excessively long recordings.
+
+The styling for VoiceRecorder is already implemented in the initial code's VoiceRecorder/index.css.
+
+Frontend Logic (client/src/components/ConversationalMic/index.jsx) — Optional Bonus
+The ConversationalMic is an alternative to VoiceRecorder that uses the browser's Web Speech API for real-time transcription — no server call needed. It auto-submits after 3 seconds of silence. This component is optional and not used in the current InterviewPage, but the shell is included in the initial code if you want to explore it. Below is the logic implementation:
+
+1234567891011
+useEffect(() => {  const SpeechRecognition =    window.SpeechRecognition || window.webkitSpeechRecognition;  if (!SpeechRecognition) {    setIsSupported(false);    return;  }  const recog = new SpeechRecognition();  recog.continuous = true;  recog.interimResults = true; 
+Expand
+ConversationalMic uses the browser's Web Speech API (SpeechRecognition) for real-time transcription without server calls. It auto-submits after 3 seconds of silence with a visible countdown, and shows live interim results as you speak.
+
+The styling for ConversationalMic is already implemented in the initial code's ConversationalMic/index.css.
+
+Frontend Code (client/src/components/CodeEditor/index.jsx)
+The CodeEditor component is already implemented in the initial code as a wrapper around Monaco Editor.
+
+Frontend Logic (client/src/pages/InterviewPage/index.jsx)
+The component JSX is already in the initial code. Add the following logic:
+
+1234567891011
+useEffect(() => {  const loadInterview = async () => {    try {      const data = await getInterview(id);      setCurrentQuestionNum(data.currentQuestion);      setTotalQuestions(data.totalQuestions);      if (data.questions && data.questions.length > 0) {        const qIndex = data.currentQuestion - 1;        setCurrentQuestion(data.questions[qIndex] || data.questions[0]);      }  
+Expand
+InterviewPage manages a state machine with four states: speaking, thinking, listening, and farewell. The useEffect loads the interview data and sets the initial state. The handler functions manage the flow: handleAudioEnded transitions from speaking to listening, processAnswerResult handles the AI's response and moves to the next question, and handleEndInterview generates the feedback report.
+
+The styling for InterviewPage is already implemented in the initial code's InterviewPage/index.css.
+
+Frontend Code (client/src/App.jsx) — Updated with Interview Route
+With the InterviewPage built, we add its route to App.jsx. The interview route uses a dynamic :id parameter to load the specific interview session.
+
+JSX
+1234567891011
+import { Routes, Route, Navigate } from 'react-router-dom';import LoginPage from './pages/LoginPage';import Navbar from './components/Navbar';import ProtectedRoute from './components/ProtectedRoute';import HomePage from './pages/HomePage';import InterviewSetupPage from './pages/InterviewSetupPage';import InterviewPage from './pages/InterviewPage';function App() {  return (    <div className="app-shell"> 
+Expand
+The :id parameter lets React Router extract the interview ID from the URL. All protected routes include the Navbar for consistent navigation across the app.
+
+AI Interview — Done!
+What We've Built So Far
+Speech-to-text transcription with AssemblyAI for voice answer processing
+Text-to-speech with Murf AI for the AI interviewer's voice (streaming and non-streaming)
+Complete interview service with answer submission, code evaluation, follow-ups, and farewell
+Full interview controller and routes with seven endpoints
+AudioPlayer for base64 audio playback with auto-play and onEnded callbacks
+VoiceRecorder with MediaRecorder API (record, preview, submit flow)
+InterviewPage state machine managing speaking, thinking, listening, and farewell states
+What's Next
+Users can now have a complete AI-powered interview. But they need to see how they performed — detailed feedback scores across 5 categories, a history of all their practice sessions, and a dashboard showing their progress over time.
+
+Implementing Feedback & Interview History Functionality
+Steps to Implement
+Building Feedback Generation Service
+Building History Service, Controller, and Routes
+Building Feedback, History Pages, and Completing the App
+Step 9: Building Feedback Generation Service
+When the interview ends, the candidate needs to see how they performed. We generate a detailed feedback report with scores across five categories using Gemini.
+
+The endInterview and getInterviewById functions were already added in the complete interview service from the previous step. Let's examine how they handle feedback generation in detail.
+
+Backend Code (server/src/services/interview.service.js) — Feedback Functions
+The endInterview function (already part of the complete interview.service.js from the previous functionality) handles feedback generation:
+
+1234567891011
+export const endInterview = async (interviewId, userId) => {  const interview = await Interview.findOne({ _id: interviewId, userId });  if (!interview) {    const error = new Error('Interview not found');    error.statusCode = 404;    throw error;  }  if (interview.status === 'completed' && interview.feedback) {    return {      interviewId: interview._id,  
+Expand
+If feedback already exists, it returns the cached version instead of calling Gemini again — preventing duplicate API costs. The code summary includes both the code and its evaluation, giving Gemini full context for scoring.
+
+Step 10: Building History Service, Controller, and Routes
+Users need to track their progress over time. We build paginated interview history with the ability to view, delete, and clear past interviews.
+
+Backend Code (server/src/services/history.service.js)
+1234567891011
+import Interview from '../models/Interview.model.js';export const getUserHistory = async (userId, page = 1, limit = 10) => {  const skip = (page - 1) * limit;  const [entries, totalEntries] = await Promise.all([    Interview.find({ userId })      .sort({ createdAt: -1 })      .skip(skip)      .limit(limit)      .select('role status overallScore totalQuestions createdAt'), 
+Expand
+Promise.all runs the paginated query and count query in parallel for better performance. The .select() only fetches fields needed for the card display, keeping the response lightweight.
+
+The service handles database queries. The controller receives HTTP requests, extracts pagination parameters from query strings, and sends formatted responses.
+
+Backend Code (server/src/controllers/history.controller.js)
+1234567891011
+import * as historyService from '../services/history.service.js';export const getHistory = async (req, res, next) => {  try {    const page = parseInt(req.query.page) || 1;    const limit = parseInt(req.query.limit) || 10;    const result = await historyService.getUserHistory(req.user._id, page, limit);    return res.json({ success: true, data: result });  } catch (error) {    next(error);  
+Expand
+The controller parses pagination parameters from query strings with safe defaults (page=1, limit=10).
+
+We wire the history endpoints to URLs. The /clear path must come before /:id so Express doesn't interpret "clear" as a MongoDB ID.
+
+Backend Code (server/src/routes/history.routes.js)
+1234567891011
+import { Router } from 'express';import {  getHistory,  getHistoryItem,  deleteHistoryItem,  clearHistory,} from '../controllers/history.controller.js';import authenticate from '../middleware/auth.middleware.js';const router = Router(); 
+Expand
+/clear must be defined before /:id, otherwise Express would interpret "clear" as a MongoDB ID.
+
+With all route modules built, we update the central registry to mount the history routes alongside the existing auth, resume, and interview routes.
+
+Backend Code (server/src/routes/index.js) — Complete Route Registry
+1234567891011
+import { Router } from 'express';import authRoutes from './auth.routes.js';import resumeRoutes from './resume.routes.js';import interviewRoutes from './interview.routes.js';import historyRoutes from './history.routes.js';const router = Router();router.use('/auth', authRoutes);router.use('/resume', resumeRoutes);router.use('/interview', interviewRoutes); 
+Expand
+This central registry mounts all four route modules. Combined with app.use('/api', routes) in app.js, the final URLs are /api/auth/..., /api/resume/..., /api/interview/..., and /api/history/....
+
+Step 11: Building Feedback, History Pages, and Completing the App
+Finally, we add the logic to the FeedbackPage, HistoryPage, and HomePage to display scores, history, and dashboard stats — completing the full application.
+
+The backend history endpoints are ready. We create a frontend service to call them — fetching paginated history, deleting individual interviews, and clearing all history.
+
+Frontend Code (client/src/services/historyService.js)
+1234567891011
+import API from './api.js';const getHistory = async (page = 1, limit = 10) => {  const response = await API.get(`/history?page=${page}&limit=${limit}`);  return response.data.data;};const deleteHistoryItem = async (id) => {  const response = await API.delete(`/history/${id}`);  return response.data;}; 
+Expand
+Three API wrappers for the history endpoints. getHistory passes pagination params as query strings.
+
+Frontend Code (client/src/components/ScoreCard/index.jsx)
+The ScoreCard component is already implemented in the initial code.
+
+The styling for ScoreCard is already implemented in the initial code's ScoreCard/index.css.
+
+Frontend Code (client/src/components/InterviewCard/index.jsx)
+The InterviewCard component is already implemented in the initial code.
+
+The styling for InterviewCard is already implemented in the initial code's InterviewCard/index.css.
+
+Frontend Logic (client/src/pages/FeedbackPage/index.jsx)
+After an interview ends, the FeedbackPage displays the AI-generated performance report. It fetches the interview data, extracts feedback scores, and renders them using ScoreCard components across 5 categories. The shell and styling are already in the initial code — we add the data loading logic.
+
+1234567891011
+useEffect(() => {  const loadFeedback = async () => {    try {      const data = await getInterview(id);      if (!data.feedback) {        toast.error('No feedback available for this interview.');        navigate('/');        return;      } 
+Expand
+FeedbackPage fetches the interview by ID and renders five ScoreCard components, strengths/improvement areas as bulleted lists, and a final assessment. Optional chaining safely handles cases where Gemini's response might miss a field.
+
+The styling for FeedbackPage is already implemented in the initial code's FeedbackPage/index.css.
+
+Frontend Logic (client/src/pages/HistoryPage/index.jsx)
+The HistoryPage shows all past interviews with pagination. Clicking a card opens feedback (if completed) or resumes the interview. Users can also delete individual entries or clear all history. The shell and styling are already in the initial code — we add the data loading and interaction logic.
+
+1234567891011
+useEffect(() => {  const loadHistory = async () => {    setLoading(true);    try {      const data = await getHistory(page, ITEMS_PER_PAGE);      setInterviews(data.entries);      setTotalPages(data.totalPages);      setTotalEntries(data.totalEntries);    } catch (error) {      toast.error('Failed to load history');    } finally { 
+Expand
+HistoryPage features server-side pagination (8 items per page), optimistic deletion, and smart navigation — completed interviews go to feedback, in-progress ones resume the interview.
+
+The styling for HistoryPage is already implemented in the initial code's HistoryPage/index.css.
+
+Frontend Logic (client/src/pages/HomePage/index.jsx) — Complete Version with Stats
+We complete the HomePage with real data — loading all interviews to calculate stats (total count, completed count, average score) and showing the 3 most recent interviews. This transforms the simple welcome screen into a full dashboard. The shell and styling are already in the initial code — we add the data logic.
+
+1234567891011
+useEffect(() => {  const loadHistory = async () => {    try {      const allData = await getHistory(1, 100);      setAllInterviews(allData.entries);      setRecentInterviews(allData.entries.slice(0, 3));    } catch (error) {      console.error('Failed to load history:', error.message);    } finally {      setLoading(false);    } 
+Expand
+The complete HomePage shows three stat cards (total interviews, completed count, average score), a "Start New Interview" CTA, and the 3 most recent interviews. The "View All" button links to the full HistoryPage.
+
+The styling for HomePage is already implemented in the initial code's HomePage/index.css.
+
+Frontend Code (client/src/App.jsx) — Complete Version with All Routes
+With all pages built, we add the remaining routes for FeedbackPage and HistoryPage to complete the application routing.
+
+JSX
+1234567891011
+import { Routes, Route, Navigate } from 'react-router-dom';import LoginPage from './pages/LoginPage';import Navbar from './components/Navbar';import ProtectedRoute from './components/ProtectedRoute';import HomePage from './pages/HomePage';import InterviewSetupPage from './pages/InterviewSetupPage';import InterviewPage from './pages/InterviewPage';import FeedbackPage from './pages/FeedbackPage';import HistoryPage from './pages/HistoryPage';function App() { 
+Expand
+The complete routing includes all five protected pages. FeedbackPage and HistoryPage include the Navbar for consistent navigation. The catch-all * route redirects unknown URLs to the homepage.
+
+Feedback & Interview History — Done!
+Users can now view detailed feedback with scores across 5 categories, browse paginated interview history, and track progress through stat cards on the dashboard.
+
+Summary
+We built a complete AI-powered mock interview platform across 3 functionalities and 11 steps:
+
+Functionality 1: Resume Upload & Interview Setup (Steps 1–4)
+1. Set up Gemini AI client and prompt templates
+2. Built Resume model, PDF parsing service, and upload controller
+3. Built Interview model and start interview service
+4. Built InterviewSetupPage with 3-step wizard and initial HomePage
+
+Functionality 2: AI Interview (Steps 5–8)
+5. Built voice-to-text transcription with AssemblyAI
+6. Built text-to-speech with Murf AI (streaming and non-streaming)
+7. Built answer submission, code evaluation, feedback generation, and all interview routes
+8. Built InterviewPage with VoiceRecorder, AudioPlayer, CodeEditor, and interviewer state machine
+
+Functionality 3: Feedback & Interview History (Steps 9–11)
+9. Detailed the feedback generation logic (endInterview, getInterviewById)
+10. Built history service, controller, and routes with pagination
+11. Built FeedbackPage, HistoryPage, complete HomePage with stats, and final App.jsx routing
+
+Architecture Overview
+┌─────────────────────────────────────────────────────────┐│                    React Frontend                        ││  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌─────────┐ ││  │  Setup   │→ │Interview │→ │ Feedback │  │ History │ ││  │  Page    │  │  Page    │  │  Page    │  │  Page   │ ││  └──────────┘  └──────────┘  └──────────┘  └─────────┘ ││       ↓              ↓             ↓            ↓       ││  ┌──────────────────────────────────────────────────┐   ││  │            Axios API Service Layer               │   ││  └──────────────────────────────────────────────────┘   │└─────────────────────────┬───────────────────────────────┘                          │ HTTP REST API┌─────────────────────────┴───────────────────────────────┐│                   Express Backend                        ││  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌─────────┐ ││  │  Routes  │→ │Controllers│→│ Services │→ │ Models  │ ││  └──────────┘  └──────────┘  └──────────┘  └─────────┘ ││                      ↓                                   ││  ┌──────────────────────────────────────────────────┐   ││  │         External AI Services                      │   ││  │  ┌─────────┐  ┌──────────┐  ┌───────────────┐   │   ││  │  │ Gemini  │  │ Murf AI  │  │  AssemblyAI   │   │   ││  │  │  (LLM)  │  │  (TTS)   │  │   (STT)       │   │   ││  │  └─────────┘  └──────────┘  └───────────────┘   │   ││  └──────────────────────────────────────────────────┘   ││                      ↓                                   ││  ┌──────────────────────────────────────────────────┐   ││  │              MongoDB Atlas                        │   ││  │  ┌──────┐  ┌───────────┐  ┌──────────┐          │   ││  │  │Users │  │Interviews │  │ Resumes  │          │   ││  │  └──────┘  └───────────┘  └──────────┘          │   ││  └──────────────────────────────────────────────────┘   │└─────────────────────────────────────────────────────────┘
+Collapse

@@ -1,0 +1,15 @@
+AgentHire — AI Hiring & Interview Automation Platform
+Stack: Next.js, React, Node.js, Express, MongoDB/Mongoose, LangGraph, Monaco Editor, Murf AI, AssemblyAI
+
+Architected an end-to-end recruiting pipeline (resume parsing → screening → adaptive interview → scorecard) driven by a LangGraph state machine and spec-driven LLM prompts.
+Designed an adaptive voice interview engine that generates resume-tailored questions and follow-ups, with a 5-category scorecard (technical, problem-solving, communication, code quality, experience).
+Built a browser-based coding IDE (Monaco) with per-language boilerplate, visible/hidden test cases, and live code execution via a sandboxed runner — including timeout handling and retry logic for flaky-free grading.
+Implemented real-time speech synthesis and transcription (Murf + AssemblyAI) with deterministic fallbacks, ensuring the app degrades gracefully and requires no API keys to demo.
+Deployed a CI/CD pipeline with auto-deploy on Render (API) and Vercel (frontend) from a single repo.
+
+
+
+mongodb+srv://nagateja:<Nagateja9110556678>@cluster0.qejavg6.mongodb.net/CareerMind?retryWrites=true&w=majority&appName=Cluster0
+mongodb+srv://nagateja:Nagateja9110556678@cluster0.qejavg6.mongodb.net/CareerMind?appName=Cluster0
+mongodb+srv://nagateja:<Nagateja9110556678>@cluster0.qejavg6.mongodb.net/CareerMind?retryWrites=true&w=majority&appName=Cluster0
+mongodb+srv://nagateja:<Nagateja9110556678>@cluster0.qejavg6.mongodb.net/CareerMind?retryWrites=true&w=majority&appName=Cluster0

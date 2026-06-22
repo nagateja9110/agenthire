@@ -23,7 +23,19 @@ const schema = z.object({
   required_skills: z.string().min(1, 'At least one required skill'),
   preferred_skills: z.string().optional().default(''),
   min_experience: z.coerce.number().min(0).max(50),
-});
+  minimum_score: z.preprocess(
+    (v) => (v === '' || v === undefined ? undefined : Number(v)),
+    z.number().min(0).max(100).optional()
+  ),
+  hold_min: z.preprocess(
+    (v) => (v === '' || v === undefined ? undefined : Number(v)),
+    z.number().min(0).max(100).optional()
+  ),
+}).refine(
+  (data) =>
+    data.minimum_score === undefined || data.hold_min === undefined || data.hold_min <= data.minimum_score,
+  { message: 'Must be ≤ shortlist threshold', path: ['hold_min'] }
+);
 
 const parseSkills = (value) =>
   [...new Set(String(value || '').split(',').map((s) => s.trim()).filter(Boolean))];
@@ -47,6 +59,8 @@ export default function CreateJobPage() {
       required_skills: 'React, JavaScript, CSS',
       preferred_skills: 'Next.js, Tailwind CSS',
       min_experience: 1,
+      minimum_score: '',
+      hold_min: '',
     },
   });
 
@@ -64,6 +78,12 @@ export default function CreateJobPage() {
           required_skills: parseSkills(values.required_skills),
           preferred_skills: parseSkills(values.preferred_skills),
           min_experience: values.min_experience,
+          minimum_score: values.minimum_score === '' || values.minimum_score === undefined
+            ? null
+            : values.minimum_score,
+          hold_min: values.hold_min === '' || values.hold_min === undefined
+            ? null
+            : values.hold_min,
         },
       });
       toast.success('Job created', { description: 'Copy the public apply link from the jobs list.' });
@@ -172,6 +192,46 @@ export default function CreateJobPage() {
                 {...register('min_experience')}
               />
               <FieldError>{errors.min_experience?.message}</FieldError>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="minimum_score">
+                Shortlist threshold <span className="font-normal text-muted-foreground">(optional, 0-100)</span>
+              </Label>
+              <Input
+                id="minimum_score"
+                type="number"
+                min="0"
+                max="100"
+                step="1"
+                placeholder="Default: 80"
+                className="max-w-32"
+                {...register('minimum_score')}
+              />
+              <p className="text-xs text-muted-foreground">
+                Candidates scoring at or above this overrides the platform default for this job.
+              </p>
+              <FieldError>{errors.minimum_score?.message}</FieldError>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="hold_min">
+                Reject-below threshold <span className="font-normal text-muted-foreground">(optional, 0-100)</span>
+              </Label>
+              <Input
+                id="hold_min"
+                type="number"
+                min="0"
+                max="100"
+                step="1"
+                placeholder="Default: 60"
+                className="max-w-32"
+                {...register('hold_min')}
+              />
+              <p className="text-xs text-muted-foreground">
+                Candidates scoring below this are auto-rejected; scores in between are held for review.
+              </p>
+              <FieldError>{errors.hold_min?.message}</FieldError>
             </div>
 
             {serverError && (
